@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: clinassist-db
+    environment:
+      POSTGRES_DB: clinassist
+      POSTGRES_USER: clinassist
+      POSTGRES_PASSWORD: clinassist_secret_2024
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/src/main/resources/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - clinassist-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U clinassist"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Spring Boot Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: clinassist-backend
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/clinassist
+      SPRING_DATASOURCE_USERNAME: clinassist
+      SPRING_DATASOURCE_PASSWORD: clinassist_secret_2024
+      JWT_SECRET: clinassist_jwt_secret_key_2024_very_secure
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - clinassist-network
+
+  # Angular Web App
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: clinassist-web
+    ports:
+      - "4200:80"
+    depends_on:
+      - backend
+    networks:
+      - clinassist-network
+
+volumes:
+  postgres_data:
+
+networks:
+  clinassist-network:
+    driver: bridge
+

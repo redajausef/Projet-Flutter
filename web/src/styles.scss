@@ -1,0 +1,184 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+  --primary: #0D4F4F;
+  --primary-light: #1A6B6B;
+  --primary-dark: #083838;
+  --accent: #D4AF37;
+  --accent-light: #E5C76B;
+  --background: #0A0E17;
+  --surface: #141A27;
+  --surface-light: #1E2636;
+  --card: #1A2033;
+  --text-primary: #F5F5F5;
+  --text-secondary: #B0B8C9;
+  --text-muted: #6B7280;
+  --success: #10B981;
+  --warning: #F59E0B;
+  --error: #EF4444;
+  --info: #3B82F6;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--background);
+  color: var(--text-primary);
+}
+
+// Custom scrollbar
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--surface);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--primary);
+  border-radius: 4px;
+  
+  &:hover {
+    background: var(--primary-light);
+  }
+}
+
+// Angular Material Dark Theme Overrides
+.mat-mdc-dialog-container {
+  --mdc-dialog-container-color: var(--card) !important;
+}
+
+.mat-mdc-snack-bar-container {
+  --mdc-snackbar-container-color: var(--card) !important;
+  --mdc-snackbar-supporting-text-color: var(--text-primary) !important;
+}
+
+.mat-mdc-menu-panel {
+  background: var(--card) !important;
+}
+
+.mat-mdc-menu-item {
+  color: var(--text-primary) !important;
+}
+
+.mat-mdc-form-field {
+  .mdc-text-field--filled:not(.mdc-text-field--disabled) {
+    background-color: var(--surface-light) !important;
+  }
+  
+  .mdc-floating-label {
+    color: var(--text-secondary) !important;
+  }
+  
+  .mat-mdc-input-element {
+    color: var(--text-primary) !important;
+  }
+}
+
+// Button styles
+.btn-primary {
+  @apply bg-primary hover:bg-primary-light text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200;
+  
+  &:hover {
+    box-shadow: 0 4px 15px rgba(13, 79, 79, 0.4);
+    transform: translateY(-1px);
+  }
+}
+
+.btn-accent {
+  @apply bg-accent hover:bg-accent-light text-background font-semibold py-3 px-6 rounded-xl transition-all duration-200;
+  
+  &:hover {
+    box-shadow: 0 4px 15px rgba(212, 175, 55, 0.4);
+    transform: translateY(-1px);
+  }
+}
+
+.btn-outline {
+  @apply border-2 border-primary text-primary hover:bg-primary hover:text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200;
+}
+
+// Card styles
+.card {
+  @apply bg-card rounded-2xl border border-surface-light p-6;
+}
+
+.card-hover {
+  @apply card transition-all duration-300;
+  
+  &:hover {
+    @apply border-primary;
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  }
+}
+
+// Gradient text
+.gradient-text {
+  background: linear-gradient(135deg, var(--accent), var(--accent-light));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+// Glass effect
+.glass {
+  background: rgba(26, 32, 51, 0.8);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+// Animations
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+.animate-delay-100 { animation-delay: 0.1s; }
+.animate-delay-200 { animation-delay: 0.2s; }
+.animate-delay-300 { animation-delay: 0.3s; }
+.animate-delay-400 { animation-delay: 0.4s; }
+
+// Status badges
+.badge {
+  @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold;
+}
+
+.badge-success {
+  @apply badge bg-success/20 text-success;
+}
+
+.badge-warning {
+  @apply badge bg-warning/20 text-warning;
+}
+
+.badge-error {
+  @apply badge bg-error/20 text-error;
+}
+
+.badge-info {
+  @apply badge bg-info/20 text-info;
+}
+
