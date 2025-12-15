@@ -60,7 +60,7 @@ import { CommonModule } from '@angular/common';
         <div class="card">
           <div class="card-body text-center">
             <div class="avatar avatar-l bg-primary-subtle mx-auto mb-3">
-              <i class="ti ti-brain f-24 text-primary"></i>
+              <i class="ti ti-target f-24 text-primary"></i>
             </div>
             <h3 class="mb-1 text-primary">94%</h3>
             <p class="text-muted mb-0">Précision modèle</p>

@@ -213,7 +213,7 @@ import { AuthService } from '../../core/services/auth.service';
           <div class="col-6 col-md-3">
             <a routerLink="/predictions" class="quick-action">
               <div class="quick-icon bg-warning">
-                <i class="ti ti-brain"></i>
+                <i class="ti ti-chart-dots"></i>
               </div>
               <h6>Analyse IA</h6>
               <small>Lancer une prédiction</small>
