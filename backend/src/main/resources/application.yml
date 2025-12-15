@@ -2,14 +2,13 @@ spring:
   application:
     name: ClinAssist Backend
   
-  # Database Configuration
+  # Default Profile - H2 for local development without Docker
   datasource:
     url: jdbc:h2:mem:clinassist;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
     username: sa
     password: 
     driver-class-name: org.h2.Driver
   
-  # JPA Configuration
   jpa:
     hibernate:
       ddl-auto: create-drop
@@ -19,24 +18,10 @@ spring:
         format_sql: true
         dialect: org.hibernate.dialect.H2Dialect
   
-  # H2 Console
   h2:
     console:
       enabled: true
       path: /h2-console
-  
-  # Mail Configuration
-  mail:
-    host: smtp.gmail.com
-    port: 587
-    username: ${MAIL_USERNAME:clinassist@gmail.com}
-    password: ${MAIL_PASSWORD:}
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
 
 # Server Configuration
 server:
@@ -46,24 +31,20 @@ server:
 
 # JWT Configuration
 jwt:
-  secret: ${JWT_SECRET:clinassist_jwt_secret_key_2024_development_only}
-  expiration: 86400000 # 24 hours
-  refresh-expiration: 604800000 # 7 days
+  secret: ${JWT_SECRET:Y2xpbmFzc2lzdF9qd3Rfc2VjcmV0X2tleV8yMDI0X2RldmVsb3BtZW50X29ubHk=}
+  expiration: 86400000
+  refresh-expiration: 604800000
 
 # Application Configuration
 app:
   cors:
-    allowed-origins: http://localhost:4200,http://localhost:3000
-  prediction:
-    model-path: ${PREDICTION_MODEL_PATH:classpath:ml/prediction_model.json}
+    allowed-origins: http://localhost:4200,http://localhost:3000,http://localhost:8080
 
 # Logging
 logging:
   level:
     com.clinassist: DEBUG
     org.springframework.security: INFO
-  pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
 
 # OpenAPI Documentation
 springdoc:
@@ -71,34 +52,63 @@ springdoc:
     path: /api-docs
   swagger-ui:
     path: /swagger-ui.html
-    operationsSorter: method
+
+# Actuator for health checks
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
 
 ---
-# Docker Profile
+# ==========================================
+# Docker Profile - PostgreSQL
+# ==========================================
 spring:
   config:
     activate:
       on-profile: docker
   
   datasource:
-    url: jdbc:postgresql://postgres:5432/clinassist
-    username: clinassist
-    password: clinassist_secret_2024
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres:5432/clinassist}
+    username: ${SPRING_DATASOURCE_USERNAME:clinassist}
+    password: ${SPRING_DATASOURCE_PASSWORD:clinassist_secret_2024}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
   
   jpa:
     hibernate:
       ddl-auto: update
+    show-sql: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          batch_size: 25
+        order_inserts: true
+        order_updates: true
   
   h2:
     console:
       enabled: false
 
+logging:
+  level:
+    com.clinassist: INFO
+    org.hibernate.SQL: WARN
+
 ---
+# ==========================================
 # Production Profile
+# ==========================================
 spring:
   config:
     activate:
@@ -109,6 +119,9 @@ spring:
     username: ${DATABASE_USERNAME}
     password: ${DATABASE_PASSWORD}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 10
   
   jpa:
     hibernate:
@@ -120,5 +133,5 @@ spring:
 
 logging:
   level:
-    com.clinassist: INFO
-
+    com.clinassist: WARN
+    root: WARN

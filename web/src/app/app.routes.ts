@@ -3,11 +3,6 @@ import { authGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
   {
-    path: '',
-    redirectTo: 'dashboard',
-    pathMatch: 'full'
-  },
-  {
     path: 'login',
     loadComponent: () => import('./features/auth/login/login.component').then(m => m.LoginComponent)
   },
@@ -41,14 +36,14 @@ export const routes: Routes = [
         loadComponent: () => import('./features/predictions/predictions-dashboard/predictions-dashboard.component').then(m => m.PredictionsDashboardComponent)
       },
       {
-        path: 'settings',
-        loadComponent: () => import('./features/settings/settings.component').then(m => m.SettingsComponent)
+        path: '',
+        redirectTo: 'dashboard',
+        pathMatch: 'full'
       }
     ]
   },
   {
     path: '**',
-    redirectTo: 'dashboard'
+    redirectTo: 'login'
   }
 ];
-

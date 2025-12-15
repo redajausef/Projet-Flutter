@@ -1,7 +1,9 @@
 version: '3.8'
 
 services:
+  # ==========================================
   # PostgreSQL Database
+  # ==========================================
   postgres:
     image: postgres:15-alpine
     container_name: clinassist-db
@@ -10,19 +12,23 @@ services:
       POSTGRES_USER: clinassist
       POSTGRES_PASSWORD: clinassist_secret_2024
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/src/main/resources/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - clinassist-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U clinassist"]
+      test: ["CMD-SHELL", "pg_isready -U clinassist -d clinassist"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
+    restart: unless-stopped
 
+  # ==========================================
   # Spring Boot Backend
+  # ==========================================
   backend:
     build:
       context: ./backend
@@ -33,7 +39,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/clinassist
       SPRING_DATASOURCE_USERNAME: clinassist
       SPRING_DATASOURCE_PASSWORD: clinassist_secret_2024
-      JWT_SECRET: clinassist_jwt_secret_key_2024_very_secure
+      JWT_SECRET: Y2xpbmFzc2lzdF9qd3Rfc2VjcmV0X2tleV8yMDI0X3ZlcnlfbG9uZ19hbmRfc2VjdXJlX2Jhc2U2NA==
     ports:
       - "8080:8080"
     depends_on:
@@ -41,8 +47,17 @@ services:
         condition: service_healthy
     networks:
       - clinassist-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
-  # Angular Web App
+  # ==========================================
+  # Angular Web Frontend
+  # ==========================================
   web:
     build:
       context: ./web
@@ -54,11 +69,34 @@ services:
       - backend
     networks:
       - clinassist-network
+    restart: unless-stopped
+
+  # ==========================================
+  # pgAdmin (Optional - Database Management UI)
+  # ==========================================
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: clinassist-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@clinassist.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - clinassist-network
+    restart: unless-stopped
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
 
 volumes:
   postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local
 
 networks:
   clinassist-network:
     driver: bridge
-

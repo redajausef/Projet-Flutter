@@ -1,4 +1,4 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { Observable, tap } from 'rxjs';
@@ -10,71 +10,100 @@ export interface User {
   email: string;
   firstName: string;
   lastName: string;
-  role: string;
-  profileImageUrl?: string;
+  role: 'ADMIN' | 'THERAPEUTE' | 'PATIENT';
+}
+
+export interface LoginRequest {
+  usernameOrEmail: string;
+  password: string;
 }
 
 export interface AuthResponse {
-  accessToken: string;
-  refreshToken: string;
-  user: User;
+  token: string;
+  type: string;
+  id: number;
+  username: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: string;
 }
 
 @Injectable({
   providedIn: 'root'
 })
 export class AuthService {
-  private readonly apiUrl = environment.apiUrl;
+  private apiUrl = environment.apiUrl;
   
   currentUser = signal<User | null>(null);
-
-  constructor(
-    private http: HttpClient,
-    private router: Router
-  ) {
-    this.loadStoredUser();
+  isAuthenticated = computed(() => !!this.currentUser());
+  
+  constructor(private http: HttpClient, private router: Router) {
+    this.loadUserFromStorage();
   }
 
-  login(usernameOrEmail: string, password: string): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(`${this.apiUrl}/auth/login`, {
-      usernameOrEmail,
-      password
-    }).pipe(
+  private loadUserFromStorage() {
+    const token = localStorage.getItem('token');
+    const userStr = localStorage.getItem('user');
+    
+    if (token && userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        this.currentUser.set(user);
+      } catch {
+        this.clearStorage();
+      }
+    }
+  }
+
+  login(credentials: { username: string; password: string }): Observable<AuthResponse> {
+    // Transform to backend expected format
+    const payload: LoginRequest = {
+      usernameOrEmail: credentials.username,
+      password: credentials.password
+    };
+    
+    return this.http.post<AuthResponse>(`${this.apiUrl}/auth/login`, payload).pipe(
       tap(response => {
-        this.storeAuth(response);
+        localStorage.setItem('token', response.token);
+        const user: User = {
+          id: response.id,
+          username: response.username,
+          email: response.email,
+          firstName: response.firstName,
+          lastName: response.lastName,
+          role: response.role as User['role']
+        };
+        localStorage.setItem('user', JSON.stringify(user));
+        this.currentUser.set(user);
       })
     );
   }
 
-  logout(): void {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('user');
+  logout() {
+    this.clearStorage();
     this.currentUser.set(null);
     this.router.navigate(['/login']);
   }
 
-  isAuthenticated(): boolean {
-    const token = localStorage.getItem('access_token');
-    return !!token;
+  private clearStorage() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
   }
 
   getToken(): string | null {
-    return localStorage.getItem('access_token');
+    return localStorage.getItem('token');
   }
 
-  private storeAuth(response: AuthResponse): void {
-    localStorage.setItem('access_token', response.accessToken);
-    localStorage.setItem('refresh_token', response.refreshToken);
-    localStorage.setItem('user', JSON.stringify(response.user));
-    this.currentUser.set(response.user);
+  isAdmin(): boolean {
+    return this.currentUser()?.role === 'ADMIN';
   }
 
-  private loadStoredUser(): void {
-    const userJson = localStorage.getItem('user');
-    if (userJson) {
-      this.currentUser.set(JSON.parse(userJson));
-    }
+  isTherapeute(): boolean {
+    return this.currentUser()?.role === 'THERAPEUTE';
+  }
+
+  isPatient(): boolean {
+    return this.currentUser()?.role === 'PATIENT';
   }
 }
-

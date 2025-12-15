@@ -45,6 +45,8 @@ public class SecurityConfig {
                         // Public endpoints
                         .requestMatchers(
                                 "/auth/**",
+                                "/actuator/**",
+                                "/actuator/health/**",
                                 "/h2-console/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
@@ -71,7 +73,9 @@ public class SecurityConfig {
         configuration.setAllowedOrigins(Arrays.asList(
                 "http://localhost:4200",
                 "http://localhost:3000",
-                "http://localhost:8080"
+                "http://localhost:8080",
+                "http://web:80",
+                "http://clinassist-web:80"
         ));
         configuration.setAllowedMethods(Arrays.asList(
                 "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"

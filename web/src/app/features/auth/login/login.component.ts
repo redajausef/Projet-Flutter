@@ -9,161 +9,192 @@ import { AuthService } from '../../../core/services/auth.service';
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <div class="min-h-screen flex">
-      <!-- Left Panel - Branding -->
-      <div class="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary to-primary-dark 
-                  relative overflow-hidden">
-        <!-- Background Pattern -->
-        <div class="absolute inset-0 opacity-10">
-          <div class="absolute top-20 left-20 w-64 h-64 rounded-full bg-white/20 blur-3xl"></div>
-          <div class="absolute bottom-20 right-20 w-96 h-96 rounded-full bg-accent/20 blur-3xl"></div>
-        </div>
-        
-        <div class="relative z-10 flex flex-col justify-center px-16">
-          <div class="mb-8">
-            <div class="w-20 h-20 rounded-2xl bg-white/10 backdrop-blur flex items-center justify-center mb-6 shadow-glow">
-              <span class="material-icons text-4xl text-white">medical_services</span>
-            </div>
-            <h1 class="text-5xl font-bold text-white mb-4">ClinAssist</h1>
-            <p class="text-xl text-white/70">Assistant Clinique Prédictif</p>
-          </div>
-          
-          <div class="space-y-6">
-            <div class="flex items-center gap-4">
-              <div class="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center">
-                <span class="material-icons text-accent">insights</span>
-              </div>
-              <div>
-                <h3 class="text-white font-semibold">Analyse Prédictive</h3>
-                <p class="text-white/60 text-sm">IA avancée pour anticiper les besoins</p>
-              </div>
-            </div>
-            <div class="flex items-center gap-4">
-              <div class="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center">
-                <span class="material-icons text-accent">calendar_month</span>
-              </div>
-              <div>
-                <h3 class="text-white font-semibold">Planification Intelligente</h3>
-                <p class="text-white/60 text-sm">Optimisation automatique des séances</p>
-              </div>
-            </div>
-            <div class="flex items-center gap-4">
-              <div class="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center">
-                <span class="material-icons text-accent">security</span>
-              </div>
-              <div>
-                <h3 class="text-white font-semibold">Sécurité Maximale</h3>
-                <p class="text-white/60 text-sm">Données protégées et chiffrées</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Right Panel - Login Form -->
-      <div class="flex-1 flex items-center justify-center p-8 bg-background">
-        <div class="w-full max-w-md">
-          <!-- Mobile Logo -->
-          <div class="lg:hidden flex items-center gap-3 mb-10">
-            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-primary-light flex items-center justify-center shadow-glow">
-              <span class="material-icons text-white">medical_services</span>
-            </div>
-            <span class="text-2xl font-bold gradient-text">ClinAssist</span>
+    <div class="auth-main">
+      <div class="auth-wrapper v3">
+        <div class="auth-form">
+          <div class="auth-header text-center mb-4">
+            <img src="assets/images/logo-dark.svg" alt="logo" style="height: 40px;" />
+            <h4 class="mt-3 mb-1">ClinAssist</h4>
+            <p class="text-muted">Assistant Clinique Prédictif</p>
           </div>
 
-          <div class="mb-8">
-            <h2 class="text-3xl font-bold text-text-primary mb-2">Connexion</h2>
-            <p class="text-text-secondary">Accédez à votre espace de gestion</p>
+          <div class="card">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-end mb-4">
+                <h4 class="mb-0"><b>Connexion</b></h4>
+              </div>
+
+              @if (error()) {
+                <div class="alert alert-danger d-flex align-items-center" role="alert">
+                  <i class="ti ti-alert-circle me-2"></i>
+                  <div>{{ error() }}</div>
+                </div>
+              }
+
+              <form (ngSubmit)="login()">
+                <div class="mb-3">
+                  <label class="form-label" for="email">Email ou nom d'utilisateur</label>
+                  <input type="text" 
+                         class="form-control" 
+                         id="email" 
+                         [(ngModel)]="username"
+                         name="username"
+                         placeholder="Entrez votre identifiant" />
+                </div>
+
+                <div class="mb-3">
+                  <label class="form-label" for="password">Mot de passe</label>
+                  <div class="input-group">
+                    <input [type]="showPwd ? 'text' : 'password'" 
+                           class="form-control" 
+                           id="password"
+                           [(ngModel)]="password"
+                           name="password" 
+                           placeholder="••••••••" />
+                    <button class="btn btn-outline-secondary" type="button" (click)="showPwd = !showPwd">
+                      <i [class]="showPwd ? 'ti ti-eye-off' : 'ti ti-eye'"></i>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="d-flex mt-1 justify-content-between mb-4">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="remember" />
+                    <label class="form-check-label text-muted" for="remember">Se souvenir de moi</label>
+                  </div>
+                </div>
+
+                <div class="d-grid">
+                  <button type="submit" class="btn btn-primary" [disabled]="loading()">
+                    @if (loading()) {
+                      <span class="spinner-border spinner-border-sm me-2"></span>
+                    }
+                    Se connecter
+                  </button>
+                </div>
+              </form>
+
+              <div class="saprator my-4">
+                <span>Accès Démo</span>
+              </div>
+
+              <div class="row g-2">
+                <div class="col-6">
+                  <button type="button" class="btn btn-outline-primary w-100" (click)="setDemo('admin')">
+                    <i class="ti ti-shield me-2"></i>Admin
+                  </button>
+                </div>
+                <div class="col-6">
+                  <button type="button" class="btn btn-outline-success w-100" (click)="setDemo('therapeute')">
+                    <i class="ti ti-stethoscope me-2"></i>Thérapeute
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <!-- Error Message -->
-          <div *ngIf="error()" 
-               class="mb-6 p-4 bg-error/10 border border-error/30 rounded-xl flex items-center gap-3">
-            <span class="material-icons text-error">error</span>
-            <span class="text-error text-sm">{{ error() }}</span>
-          </div>
-
-          <!-- Form -->
-          <form (ngSubmit)="onSubmit()" class="space-y-5">
-            <div>
-              <label class="block text-sm font-medium text-text-secondary mb-2">
-                Email ou nom d'utilisateur
-              </label>
-              <div class="relative">
-                <span class="material-icons absolute left-4 top-1/2 -translate-y-1/2 text-text-muted">person</span>
-                <input type="text"
-                       [(ngModel)]="username"
-                       name="username"
-                       required
-                       class="w-full pl-12 pr-4 py-4 bg-surface-light rounded-xl text-text-primary 
-                              border border-transparent focus:border-primary focus:outline-none
-                              placeholder-text-muted transition-colors"
-                       placeholder="Entrez votre identifiant">
-              </div>
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium text-text-secondary mb-2">
-                Mot de passe
-              </label>
-              <div class="relative">
-                <span class="material-icons absolute left-4 top-1/2 -translate-y-1/2 text-text-muted">lock</span>
-                <input [type]="showPassword() ? 'text' : 'password'"
-                       [(ngModel)]="password"
-                       name="password"
-                       required
-                       class="w-full pl-12 pr-12 py-4 bg-surface-light rounded-xl text-text-primary 
-                              border border-transparent focus:border-primary focus:outline-none
-                              placeholder-text-muted transition-colors"
-                       placeholder="Entrez votre mot de passe">
-                <button type="button"
-                        (click)="showPassword.set(!showPassword())"
-                        class="absolute right-4 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary">
-                  <span class="material-icons">{{ showPassword() ? 'visibility_off' : 'visibility' }}</span>
-                </button>
-              </div>
-            </div>
-
-            <div class="flex items-center justify-between">
-              <label class="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" class="w-4 h-4 rounded border-surface-light bg-surface-light 
-                                              text-primary focus:ring-primary">
-                <span class="text-sm text-text-secondary">Se souvenir de moi</span>
-              </label>
-              <a href="#" class="text-sm text-accent hover:text-accent-light">Mot de passe oublié ?</a>
-            </div>
-
-            <button type="submit"
-                    [disabled]="loading()"
-                    class="w-full py-4 bg-gradient-to-r from-primary to-primary-light text-white font-semibold
-                           rounded-xl hover:shadow-glow transition-all duration-300 disabled:opacity-50
-                           flex items-center justify-center gap-2">
-              <span *ngIf="loading()" class="material-icons animate-spin">refresh</span>
-              <span>{{ loading() ? 'Connexion...' : 'Se connecter' }}</span>
-            </button>
-          </form>
-
-          <!-- Demo Credentials -->
-          <div class="mt-8 p-4 bg-surface-light/50 rounded-xl border border-primary/20">
-            <div class="flex items-center gap-2 text-accent mb-3">
-              <span class="material-icons text-lg">info</span>
-              <span class="font-semibold text-sm">Accès Démo</span>
-            </div>
-            <div class="space-y-2 text-sm">
-              <div class="flex items-center gap-3">
-                <span class="px-2 py-1 bg-primary/20 rounded text-text-primary text-xs">Admin</span>
-                <code class="text-text-secondary">admin / admin123</code>
-              </div>
-              <div class="flex items-center gap-3">
-                <span class="px-2 py-1 bg-primary/20 rounded text-text-primary text-xs">Thérapeute</span>
-                <code class="text-text-secondary">dr.martin / password123</code>
-              </div>
-            </div>
+          <div class="auth-footer text-center mt-4">
+            <p class="text-muted mb-0">
+              © 2024 ClinAssist - Projet Académique
+            </p>
           </div>
         </div>
       </div>
     </div>
-  `
+  `,
+  styles: [`
+    .auth-main {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 20px;
+    }
+    
+    .auth-wrapper {
+      width: 100%;
+      max-width: 420px;
+    }
+    
+    .auth-form {
+      width: 100%;
+    }
+    
+    .auth-header {
+      color: white;
+      
+      h4 { color: white; font-weight: 700; }
+      p { color: rgba(255,255,255,0.8); }
+    }
+    
+    .card {
+      border: none;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    
+    .card-body {
+      padding: 40px;
+    }
+    
+    .form-control {
+      padding: 12px 16px;
+      border-radius: 10px;
+      border: 1px solid #e0e0e0;
+      
+      &:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+      }
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border: none;
+      padding: 12px;
+      border-radius: 10px;
+      font-weight: 600;
+      
+      &:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+      }
+    }
+    
+    .btn-outline-primary, .btn-outline-success {
+      border-radius: 10px;
+      padding: 10px;
+      font-weight: 500;
+    }
+    
+    .saprator {
+      position: relative;
+      text-align: center;
+      
+      &::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: #e0e0e0;
+      }
+      
+      span {
+        background: white;
+        padding: 0 15px;
+        position: relative;
+        color: #6c757d;
+        font-size: 13px;
+      }
+    }
+    
+    .auth-footer p {
+      font-size: 13px;
+    }
+  `]
 })
 export class LoginComponent {
   private authService = inject(AuthService);
@@ -171,11 +202,24 @@ export class LoginComponent {
 
   username = '';
   password = '';
-  showPassword = signal(false);
+  showPwd = false;
   loading = signal(false);
   error = signal<string | null>(null);
 
-  onSubmit() {
+  adminEmail = 'admin@clinassist.com';
+
+  setDemo(type: string) {
+    if (type === 'admin') {
+      this.username = this.adminEmail;
+      this.password = 'password123';
+    } else {
+      this.username = 'dr.martin';
+      this.password = 'password123';
+    }
+    this.error.set(null);
+  }
+
+  login() {
     if (!this.username || !this.password) {
       this.error.set('Veuillez remplir tous les champs');
       return;
@@ -184,15 +228,12 @@ export class LoginComponent {
     this.loading.set(true);
     this.error.set(null);
 
-    this.authService.login(this.username, this.password).subscribe({
-      next: () => {
-        this.router.navigate(['/dashboard']);
-      },
-      error: (err) => {
+    this.authService.login({ username: this.username, password: this.password }).subscribe({
+      next: () => this.router.navigate(['/dashboard']),
+      error: () => {
         this.loading.set(false);
-        this.error.set(err.error?.message || 'Identifiants incorrects');
+        this.error.set('Identifiants invalides');
       }
     });
   }
 }
-
