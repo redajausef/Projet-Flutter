@@ -2,40 +2,40 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppColors {
-  // Primary Colors - Deep Teal Luxury
-  static const Color primary = Color(0xFF0D4F4F);
-  static const Color primaryLight = Color(0xFF1A6B6B);
-  static const Color primaryDark = Color(0xFF083838);
+  // Primary Colors - Medical Blue/Teal
+  static const Color primary = Color(0xFF1890FF);
+  static const Color primaryLight = Color(0xFF40A9FF);
+  static const Color primaryDark = Color(0xFF096DD9);
 
-  // Accent Colors - Gold Luxury
-  static const Color accent = Color(0xFFD4AF37);
-  static const Color accentLight = Color(0xFFE5C76B);
-  static const Color accentDark = Color(0xFFB8960C);
+  // Accent Colors - Healthcare Green
+  static const Color accent = Color(0xFF52C41A);
+  static const Color accentLight = Color(0xFF73D13D);
+  static const Color accentDark = Color(0xFF389E0D);
 
-  // Background Colors - Deep Dark
-  static const Color background = Color(0xFF0A0E17);
-  static const Color surface = Color(0xFF141A27);
-  static const Color surfaceLight = Color(0xFF1E2636);
-  static const Color card = Color(0xFF1A2033);
+  // Background Colors - Clean Light
+  static const Color background = Color(0xFFF5F7FA);
+  static const Color surface = Color(0xFFFFFFFF);
+  static const Color surfaceLight = Color(0xFFFAFAFA);
+  static const Color card = Color(0xFFFFFFFF);
 
   // Text Colors
-  static const Color textPrimary = Color(0xFFF5F5F5);
-  static const Color textSecondary = Color(0xFFB0B8C9);
-  static const Color textMuted = Color(0xFF6B7280);
+  static const Color textPrimary = Color(0xFF262626);
+  static const Color textSecondary = Color(0xFF595959);
+  static const Color textMuted = Color(0xFF8C8C8C);
 
   // Status Colors
-  static const Color success = Color(0xFF10B981);
-  static const Color warning = Color(0xFFF59E0B);
-  static const Color error = Color(0xFFEF4444);
-  static const Color info = Color(0xFF3B82F6);
+  static const Color success = Color(0xFF52C41A);
+  static const Color warning = Color(0xFFFAAD14);
+  static const Color error = Color(0xFFFF4D4F);
+  static const Color info = Color(0xFF1890FF);
 
-  // Risk Colors
-  static const Color riskLow = Color(0xFF10B981);
-  static const Color riskModerate = Color(0xFFF59E0B);
-  static const Color riskHigh = Color(0xFFEF4444);
-  static const Color riskCritical = Color(0xFF8B5CF6);
+  // Risk Colors for predictions
+  static const Color riskLow = Color(0xFF52C41A);
+  static const Color riskModerate = Color(0xFFFAAD14);
+  static const Color riskHigh = Color(0xFFFF4D4F);
+  static const Color riskCritical = Color(0xFF722ED1);
 
-  // Gradient
+  // Gradients
   static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
@@ -51,36 +51,39 @@ class AppColors {
   static const LinearGradient backgroundGradient = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [Color(0xFF0A0E17), Color(0xFF141A27)],
+    colors: [Color(0xFFF5F7FA), Color(0xFFFFFFFF)],
   );
 
   static const LinearGradient cardGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF1A2033), Color(0xFF141A27)],
+    colors: [Color(0xFFFFFFFF), Color(0xFFF5F7FA)],
   );
+
+  // Additional UI colors
+  static const Color border = Color(0xFFE8E8E8);
+  static const Color divider = Color(0xFFF0F0F0);
+  static const Color shadow = Color(0x1A000000);
 }
 
 class AppTheme {
-  static ThemeData get darkTheme {
+  static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
-      brightness: Brightness.dark,
+      brightness: Brightness.light,
       scaffoldBackgroundColor: AppColors.background,
       primaryColor: AppColors.primary,
-      colorScheme: const ColorScheme.dark(
+      colorScheme: const ColorScheme.light(
         primary: AppColors.primary,
         secondary: AppColors.accent,
         surface: AppColors.surface,
-        background: AppColors.background,
         error: AppColors.error,
-        onPrimary: AppColors.textPrimary,
-        onSecondary: AppColors.background,
+        onPrimary: Colors.white,
+        onSecondary: Colors.white,
         onSurface: AppColors.textPrimary,
-        onBackground: AppColors.textPrimary,
-        onError: AppColors.textPrimary,
+        onError: Colors.white,
       ),
-      textTheme: GoogleFonts.interTextTheme(
+      textTheme: GoogleFonts.poppinsTextTheme(
         const TextTheme(
           displayLarge: TextStyle(
             fontSize: 32,
@@ -164,9 +167,11 @@ class AppTheme {
         ),
       ),
       appBarTheme: const AppBarTheme(
-        backgroundColor: Colors.transparent,
+        backgroundColor: AppColors.surface,
         elevation: 0,
         centerTitle: true,
+        scrolledUnderElevation: 1,
+        surfaceTintColor: Colors.transparent,
         iconTheme: IconThemeData(color: AppColors.textPrimary),
         titleTextStyle: TextStyle(
           fontSize: 18,
@@ -174,17 +179,19 @@ class AppTheme {
           color: AppColors.textPrimary,
         ),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: AppColors.card,
         elevation: 0,
+        shadowColor: AppColors.shadow,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: AppColors.border, width: 1),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
-          foregroundColor: AppColors.textPrimary,
+          foregroundColor: Colors.white,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           shape: RoundedRectangleBorder(
@@ -208,7 +215,7 @@ class AppTheme {
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: AppColors.accent,
+          foregroundColor: AppColors.primary,
           textStyle: const TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
@@ -221,11 +228,11 @@ class AppTheme {
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
+          borderSide: const BorderSide(color: AppColors.border),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.transparent),
+          borderSide: const BorderSide(color: AppColors.border),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -246,13 +253,13 @@ class AppTheme {
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         backgroundColor: AppColors.surface,
-        selectedItemColor: AppColors.accent,
+        selectedItemColor: AppColors.primary,
         unselectedItemColor: AppColors.textMuted,
         type: BottomNavigationBarType.fixed,
-        elevation: 0,
+        elevation: 8,
       ),
       dividerTheme: const DividerThemeData(
-        color: AppColors.surfaceLight,
+        color: AppColors.divider,
         thickness: 1,
       ),
       iconTheme: const IconThemeData(
@@ -267,9 +274,22 @@ class AppTheme {
         ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: AppColors.border),
         ),
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        elevation: 4,
+      ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: AppColors.textPrimary,
+        contentTextStyle: const TextStyle(color: Colors.white),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }
 }
-
