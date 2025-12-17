@@ -260,7 +260,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                                       ),
                                       const SizedBox(width: 8),
                                       Text(
-                                        'Accès Démo',
+                                        'Compte de test',
                                         style: TextStyle(
                                           color: AppColors.accent,
                                           fontWeight: FontWeight.w600,
@@ -269,11 +269,34 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                                     ],
                                   ),
                                   const SizedBox(height: 12),
-                                  _buildDemoCredential('Patient', 'marie.laurent', 'patient123'),
-                                  const SizedBox(height: 8),
-                                  _buildDemoCredential('Admin', 'admin', 'admin123'),
+                                  _buildDemoCredential('Patient', 'test.patient', '00895551'),
                                 ],
                               ),
+                            ),
+                            const SizedBox(height: 24),
+                            // Register link
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  'Pas encore de compte ? ',
+                                  style: TextStyle(
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: () {
+                                    context.go('/register');
+                                  },
+                                  child: const Text(
+                                    'S\'inscrire',
+                                    style: TextStyle(
+                                      color: AppColors.primary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),

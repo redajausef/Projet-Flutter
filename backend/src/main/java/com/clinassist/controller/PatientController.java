@@ -53,6 +53,12 @@ public class PatientController {
         return ResponseEntity.ok(patientService.getPatientByCode(code));
     }
 
+    @GetMapping("/user/{userId}")
+    @Operation(summary = "Get patient by user ID")
+    public ResponseEntity<PatientDTO> getPatientByUserId(@PathVariable Long userId) {
+        return ResponseEntity.ok(patientService.getPatientByUserId(userId));
+    }
+
     @GetMapping("/therapeute/{therapeuteId}")
     @Operation(summary = "Get patients by therapeute")
     public ResponseEntity<List<PatientDTO>> getPatientsByTherapeute(@PathVariable Long therapeuteId) {

@@ -1,8 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../bloc/seance_bloc.dart';
+import '../bloc/seance_event.dart';
+import '../bloc/seance_state.dart';
+import '../../data/models/seance_model.dart';
+import 'create_appointment_page.dart';
 
 class AppointmentsPage extends StatefulWidget {
   const AppointmentsPage({super.key});
@@ -16,29 +24,21 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
 
-  final List<_Appointment> _appointments = [
-    _Appointment(
-      id: '1',
-      therapeuteName: 'Dr. Sophie Martin',
-      dateTime: DateTime.now().add(const Duration(days: 3, hours: 10)),
-      type: 'VIDEO_CALL',
-      status: 'SCHEDULED',
-    ),
-    _Appointment(
-      id: '2',
-      therapeuteName: 'Dr. Jean Dubois',
-      dateTime: DateTime.now().add(const Duration(days: 7, hours: 14)),
-      type: 'IN_PERSON',
-      status: 'CONFIRMED',
-    ),
-    _Appointment(
-      id: '3',
-      therapeuteName: 'Dr. Sophie Martin',
-      dateTime: DateTime.now().subtract(const Duration(days: 7)),
-      type: 'VIDEO_CALL',
-      status: 'COMPLETED',
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadAppointments();
+  }
+
+  void _loadAppointments() async {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is Authenticated) {
+      // Get patient ID from user ID stored in SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('user_id') ?? 1;
+      context.read<SeanceBloc>().add(LoadPatientSeances(userId, authState.token));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,23 +65,41 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    Container(
-                      width: 46,
-                      height: 46,
-                      decoration: BoxDecoration(
-                        gradient: AppColors.primaryGradient,
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.primary.withOpacity(0.3),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
+                    InkWell(
+                      onTap: () async {
+                        final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => BlocProvider.value(
+                              value: context.read<SeanceBloc>(),
+                              child: const CreateAppointmentPage(),
+                            ),
                           ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.add_rounded,
-                        color: Colors.white,
+                        );
+                        if (result == true) {
+                          // Reload appointments after creating one
+                          _loadAppointments();
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(14),
+                      child: Container(
+                        width: 46,
+                        height: 46,
+                        decoration: BoxDecoration(
+                          gradient: AppColors.primaryGradient,
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.primary.withOpacity(0.3),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.add_rounded,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ],
@@ -212,12 +230,81 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
               ),
               const SizedBox(height: 16),
               Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  itemCount: _appointments.length,
-                  itemBuilder: (context, index) {
-                    final appointment = _appointments[index];
-                    return _AppointmentCard(appointment: appointment);
+                child: BlocBuilder<SeanceBloc, SeanceState>(
+                  builder: (context, state) {
+                    if (state is SeanceLoading) {
+                      return const Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.primary,
+                        ),
+                      );
+                    } else if (state is SeancesLoaded) {
+                      final seances = state.seances;
+                      
+                      if (seances.isEmpty) {
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.calendar_today_outlined,
+                                size: 64,
+                                color: AppColors.textMuted,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Aucune séance programmée',
+                                style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                      
+                      return ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        itemCount: seances.length,
+                        itemBuilder: (context, index) {
+                          final seance = seances[index];
+                          return _AppointmentCard(appointment: seance);
+                        },
+                      );
+                    } else if (state is SeanceError) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.error_outline,
+                              size: 64,
+                              color: Colors.red,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Erreur de chargement',
+                              style: TextStyle(
+                                color: AppColors.textPrimary,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              state.message,
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                    
+                    return const SizedBox();
                   },
                 ),
               ),
@@ -229,31 +316,15 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
   }
 }
 
-class _Appointment {
-  final String id;
-  final String therapeuteName;
-  final DateTime dateTime;
-  final String type;
-  final String status;
-
-  _Appointment({
-    required this.id,
-    required this.therapeuteName,
-    required this.dateTime,
-    required this.type,
-    required this.status,
-  });
-}
-
 class _AppointmentCard extends StatelessWidget {
-  final _Appointment appointment;
+  final SeanceModel appointment;
 
   const _AppointmentCard({required this.appointment});
 
   @override
   Widget build(BuildContext context) {
-    final isUpcoming = appointment.dateTime.isAfter(DateTime.now());
-    final isVideo = appointment.type == 'VIDEO_CALL';
+    final isUpcoming = appointment.scheduledAt.isAfter(DateTime.now());
+    final isVideo = appointment.isVideoSession;
     
     Color statusColor;
     String statusText;
@@ -270,6 +341,10 @@ class _AppointmentCard extends StatelessWidget {
       case 'CANCELLED':
         statusColor = AppColors.error;
         statusText = 'Annulée';
+        break;
+      case 'PENDING_APPROVAL':
+        statusColor = Colors.orange;
+        statusText = 'En attente d\'approbation';
         break;
       default:
         statusColor = AppColors.warning;
@@ -326,7 +401,7 @@ class _AppointmentCard extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           Text(
-            appointment.therapeuteName,
+            appointment.therapeuteName ?? 'Thérapeute',
             style: const TextStyle(
               color: AppColors.textPrimary,
               fontSize: 16,
@@ -343,7 +418,7 @@ class _AppointmentCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                DateFormat('EEEE d MMMM yyyy', 'fr_FR').format(appointment.dateTime),
+                DateFormat('EEEE d MMMM yyyy', 'fr_FR').format(appointment.scheduledAt),
                 style: TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 13,
@@ -357,7 +432,7 @@ class _AppointmentCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                DateFormat('HH:mm').format(appointment.dateTime),
+                DateFormat('HH:mm').format(appointment.scheduledAt),
                 style: TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 13,

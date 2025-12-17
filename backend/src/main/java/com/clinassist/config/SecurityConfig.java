@@ -45,6 +45,7 @@ public class SecurityConfig {
                         // Public endpoints
                         .requestMatchers(
                                 "/auth/**",
+                                "/therapeutes",
                                 "/actuator/**",
                                 "/actuator/health/**",
                                 "/h2-console/**",
@@ -70,10 +71,10 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList(
-                "http://localhost:4200",
-                "http://localhost:3000",
-                "http://localhost:8080",
+        // Allow all localhost origins for development (Flutter uses random ports)
+        configuration.setAllowedOriginPatterns(Arrays.asList(
+                "http://localhost:*",
+                "http://127.0.0.1:*",
                 "http://web:80",
                 "http://clinassist-web:80"
         ));

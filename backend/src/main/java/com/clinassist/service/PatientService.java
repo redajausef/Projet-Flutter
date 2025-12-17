@@ -119,6 +119,12 @@ public class PatientService {
         return convertToDTO(patient);
     }
 
+    public PatientDTO getPatientByUserId(Long userId) {
+        Patient patient = patientRepository.findByUserId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Patient not found for user id: " + userId));
+        return convertToDTO(patient);
+    }
+
     public PatientDTO getPatientByCode(String code) {
         Patient patient = patientRepository.findByPatientCode(code)
                 .orElseThrow(() -> new ResourceNotFoundException("Patient not found with code: " + code));

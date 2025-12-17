@@ -7,11 +7,12 @@ import { SeanceService } from '../../core/services/seance.service';
 import { PatientService } from '../../core/services/patient.service';
 import { AuthService } from '../../core/services/auth.service';
 import { DashboardStats, Seance, Patient, ChartDataPoint } from '../../core/models';
+import { PendingApprovalsComponent } from '../seances/pending-approvals/pending-approvals.component';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, PendingApprovalsComponent],
   template: `
     <!-- Page Header -->
     <div class="page-header mb-4">
@@ -105,6 +106,13 @@ import { DashboardStats, Seance, Patient, ChartDataPoint } from '../../core/mode
             }
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Pending Approvals Section -->
+    <div class="row g-4 mb-4">
+      <div class="col-12">
+        <app-pending-approvals></app-pending-approvals>
       </div>
     </div>
 

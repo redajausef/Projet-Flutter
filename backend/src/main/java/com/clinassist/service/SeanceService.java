@@ -111,13 +111,19 @@ public class SeanceService {
             throw new BadRequestException("Therapeute has a conflicting appointment at this time");
         }
 
+        // Determine status based on creator role (via request or context)
+        // If created by patient, set to PENDING_APPROVAL, otherwise SCHEDULED
+        Seance.SeanceStatus initialStatus = request.getInitialStatus() != null 
+                ? request.getInitialStatus() 
+                : Seance.SeanceStatus.SCHEDULED;
+
         Seance seance = Seance.builder()
                 .patient(patient)
                 .therapeute(therapeute)
                 .scheduledAt(request.getScheduledAt())
                 .durationMinutes(request.getDurationMinutes())
                 .type(request.getType())
-                .status(Seance.SeanceStatus.SCHEDULED)
+                .status(initialStatus)
                 .objectives(request.getObjectives())
                 .notes(request.getNotes())
                 .meetingRoom(request.getMeetingRoom())
@@ -210,6 +216,16 @@ public class SeanceService {
 
     public Long countByStatus(Seance.SeanceStatus status) {
         return seanceRepository.countByStatus(status);
+    }
+
+    public boolean hasConflict(Long therapeuteId, LocalDateTime scheduledAt, Integer durationMinutes) {
+        LocalDateTime endTime = scheduledAt.plusMinutes(durationMinutes);
+        List<Seance> conflicts = seanceRepository.findByTherapeuteAndDateRange(
+                therapeuteId,
+                scheduledAt,
+                endTime
+        );
+        return !conflicts.isEmpty();
     }
 
     private SeanceDTO convertToDTO(Seance seance) {

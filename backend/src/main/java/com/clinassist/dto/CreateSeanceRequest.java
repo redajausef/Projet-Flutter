@@ -24,6 +24,8 @@ public class CreateSeanceRequest {
     
     private Seance.SeanceType type = Seance.SeanceType.IN_PERSON;
     
+    private Seance.SeanceStatus initialStatus;
+    
     private String objectives;
     private String notes;
     

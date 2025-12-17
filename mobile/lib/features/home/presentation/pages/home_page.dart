@@ -1,15 +1,45 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../appointments/presentation/bloc/seance_bloc.dart';
+import '../../../appointments/presentation/bloc/seance_event.dart';
+import '../../../appointments/presentation/bloc/seance_state.dart';
+import '../../../appointments/data/models/seance_model.dart';
+import '../bloc/home_bloc.dart';
+import '../bloc/home_event.dart';
+import '../bloc/home_state.dart';
 import '../widgets/stat_card.dart';
 import '../widgets/upcoming_appointment_card.dart';
 import '../widgets/quick_action_button.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  void _loadData() async {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is Authenticated) {
+      // Get patient ID from user ID stored in SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('user_id') ?? 1;
+      context.read<HomeBloc>().add(LoadPatientStats(userId, authState.token));
+      context.read<SeanceBloc>().add(LoadUpcomingSeances(userId, authState.token));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,25 +51,17 @@ class HomePage extends StatelessWidget {
         child: SafeArea(
           child: CustomScrollView(
             slivers: [
-              // Header
               SliverToBoxAdapter(
                 child: _buildHeader(context),
               ),
-              // Stats Cards
               SliverToBoxAdapter(
                 child: _buildStatsSection(),
               ),
-              // Quick Actions
               SliverToBoxAdapter(
                 child: _buildQuickActions(context),
               ),
-              // Upcoming Appointments
               SliverToBoxAdapter(
                 child: _buildUpcomingAppointments(context),
-              ),
-              // Health Insights
-              SliverToBoxAdapter(
-                child: _buildHealthInsights(),
               ),
               const SliverToBoxAdapter(
                 child: SizedBox(height: 100),
@@ -54,12 +76,13 @@ class HomePage extends StatelessWidget {
   Widget _buildHeader(BuildContext context) {
     return BlocBuilder<AuthBloc, AuthState>(
       builder: (context, state) {
-        final user = state is Authenticated ? state.user : null;
+        final username = state is Authenticated ? state.username : 'Utilisateur';
+        final initial = username.isNotEmpty ? username.substring(0, 1).toUpperCase() : 'U';
+        
         return Padding(
           padding: const EdgeInsets.all(24),
           child: Row(
             children: [
-              // Avatar
               Container(
                 width: 52,
                 height: 52,
@@ -76,7 +99,7 @@ class HomePage extends StatelessWidget {
                 ),
                 child: Center(
                   child: Text(
-                    user?.firstName.substring(0, 1).toUpperCase() ?? 'U',
+                    initial,
                     style: const TextStyle(
                       color: AppColors.background,
                       fontSize: 22,
@@ -85,8 +108,7 @@ class HomePage extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 16),
-              // Greeting
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -94,56 +116,27 @@ class HomePage extends StatelessWidget {
                     Text(
                       _getGreeting(),
                       style: TextStyle(
-                        color: AppColors.textSecondary,
+                        color: AppColors.textMuted,
                         fontSize: 14,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      user?.fullName ?? 'Utilisateur',
+                      username,
                       style: const TextStyle(
                         color: AppColors.textPrimary,
-                        fontSize: 20,
+                        fontSize: 18,
                         fontWeight: FontWeight.w600,
                       ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
-              // Notification Icon
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceLight,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Stack(
-                  children: [
-                    const Center(
-                      child: Icon(
-                        Icons.notifications_outlined,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    Positioned(
-                      top: 10,
-                      right: 10,
-                      child: Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          color: AppColors.accent,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: AppColors.surfaceLight,
-                            width: 2,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+              IconButton(
+                onPressed: () => context.go('/profile'),
+                icon: const Icon(Icons.settings_outlined),
+                color: AppColors.textPrimary,
               ),
             ],
           ),
@@ -160,70 +153,89 @@ class HomePage extends StatelessWidget {
   }
 
   Widget _buildStatsSection() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Vue d\'ensemble',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
+    return BlocBuilder<HomeBloc, HomeState>(
+      builder: (context, state) {
+        if (state is HomeLoading) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+            child: Center(
+              child: CircularProgressIndicator(
+                color: AppColors.primary,
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          Row(
+          );
+        }
+
+        if (state is HomeError) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            child: Text(
+              'Erreur: ${state.message}',
+              style: const TextStyle(color: AppColors.error),
+              textAlign: TextAlign.center,
+            ),
+          );
+        }
+
+        final stats = state is HomeLoaded ? state.stats : null;
+        
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: StatCard(
-                  title: 'Séances',
-                  value: '12',
-                  subtitle: 'ce mois',
-                  icon: Icons.calendar_today_rounded,
-                  color: AppColors.primary,
+              const Text(
+                'Vue d\'ensemble',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: StatCard(
-                  title: 'Progrès',
-                  value: '78%',
-                  subtitle: '+5% cette semaine',
-                  icon: Icons.trending_up_rounded,
-                  color: AppColors.success,
-                ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: StatCard(
+                      title: 'Séances',
+                      value: '${stats?.totalSeances ?? 0}',
+                      subtitle: '${stats?.completedSeances ?? 0} terminées',
+                      icon: Icons.calendar_today_rounded,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: StatCard(
+                      title: 'Progrès',
+                      value: '${stats?.completionRate.toStringAsFixed(0) ?? 0}%',
+                      subtitle: 'Taux de complétion',
+                      icon: Icons.trending_up_rounded,
+                      color: AppColors.success,
+                    ),
+                  ),
+                ],
               ),
+              const SizedBox(height: 12),
+              if (stats?.riskScore != null)
+                StatCard(
+                  title: 'Score de Risque',
+                  value: '${stats!.riskScore!.toStringAsFixed(0)}',
+                  subtitle: stats.riskCategory ?? 'Non évalué',
+                  icon: Icons.health_and_safety_rounded,
+                  color: _getRiskColor(stats.riskScore!),
+                ),
             ],
           ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: StatCard(
-                  title: 'Humeur',
-                  value: '7.5',
-                  subtitle: 'moyenne /10',
-                  icon: Icons.mood_rounded,
-                  color: AppColors.accent,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: StatCard(
-                  title: 'Objectifs',
-                  value: '4/6',
-                  subtitle: 'atteints',
-                  icon: Icons.flag_rounded,
-                  color: AppColors.info,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+        );
+      },
     );
+  }
+
+  Color _getRiskColor(double score) {
+    if (score >= 70) return Colors.red;
+    if (score >= 40) return Colors.orange;
+    return AppColors.success;
   }
 
   Widget _buildQuickActions(BuildContext context) {
@@ -242,27 +254,21 @@ class HomePage extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              QuickActionButton(
-                icon: Icons.add_circle_outline_rounded,
-                label: 'Réserver',
-                onTap: () => context.go('/appointments'),
+              Expanded(
+                child: QuickActionButton(
+                  icon: Icons.calendar_month_rounded,
+                  label: 'Rendez-vous',
+                  onTap: () => context.go('/appointments'),
+                ),
               ),
-              QuickActionButton(
-                icon: Icons.video_call_rounded,
-                label: 'Téléconsult',
-                onTap: () {},
-              ),
-              QuickActionButton(
-                icon: Icons.message_outlined,
-                label: 'Message',
-                onTap: () {},
-              ),
-              QuickActionButton(
-                icon: Icons.description_outlined,
-                label: 'Documents',
-                onTap: () {},
+              const SizedBox(width: 12),
+              Expanded(
+                child: QuickActionButton(
+                  icon: Icons.analytics_rounded,
+                  label: 'Prédictions',
+                  onTap: () => context.go('/predictions'),
+                ),
               ),
             ],
           ),
@@ -272,124 +278,88 @@ class HomePage extends StatelessWidget {
   }
 
   Widget _buildUpcomingAppointments(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Prochaines séances',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
+    return BlocBuilder<SeanceBloc, SeanceState>(
+      builder: (context, state) {
+        if (state is SeanceLoading) {
+          return const Padding(
+            padding: EdgeInsets.all(24),
+            child: Center(
+              child: CircularProgressIndicator(
+                color: AppColors.primary,
               ),
-              TextButton(
-                onPressed: () => context.go('/appointments'),
-                child: const Text('Voir tout'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          UpcomingAppointmentCard(
-            therapeuteName: 'Dr. Sophie Martin',
-            specialty: 'Psychologie Clinique',
-            dateTime: DateTime.now().add(const Duration(days: 3)),
-            type: 'Vidéo',
-            imageUrl: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=200',
-          ),
-          const SizedBox(height: 12),
-          UpcomingAppointmentCard(
-            therapeuteName: 'Dr. Jean Dubois',
-            specialty: 'Thérapie Familiale',
-            dateTime: DateTime.now().add(const Duration(days: 7)),
-            type: 'En personne',
-            imageUrl: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=200',
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHealthInsights() {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Insights de santé',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
             ),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  AppColors.primary.withOpacity(0.2),
-                  AppColors.primary.withOpacity(0.1),
+          );
+        }
+
+        if (state is SeanceError) {
+          return Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              'Erreur: ${state.message}',
+              style: const TextStyle(color: AppColors.error),
+            ),
+          );
+        }
+
+        final seances = state is SeancesLoaded ? state.seances : [];
+        
+        return Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Prochains rendez-vous',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => context.go('/appointments'),
+                    child: const Text(
+                      'Voir tout',
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
                 ],
               ),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: AppColors.primary.withOpacity(0.3),
-              ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: const Icon(
-                    Icons.lightbulb_outline_rounded,
-                    color: AppColors.accent,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Recommandation',
-                        style: TextStyle(
-                          color: AppColors.accent,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
+              const SizedBox(height: 16),
+              if (seances.isEmpty)
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 20),
+                    child: Text(
+                      'Aucun rendez-vous à venir',
+                      style: TextStyle(
+                        color: AppColors.textMuted,
+                        fontSize: 14,
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Votre prochaine séance est recommandée dans les 5 prochains jours pour maintenir votre progression.',
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 13,
-                          height: 1.4,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-              ],
-            ),
+                )
+              else
+                ...seances.take(3).map((seance) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: UpcomingAppointmentCard(
+                        therapeuteName: seance.therapeuteName ?? 'Thérapeute',
+                        specialty: seance.type ?? 'Séance',
+                        dateTime: seance.scheduledAt,
+                        type: seance.type ?? 'Consultation',
+                        imageUrl: '', // No image URL in API
+                      ),
+                    )),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
-

@@ -90,10 +90,20 @@ public class SeanceController {
 
     @PostMapping
     @Operation(summary = "Create a new seance")
-    @PreAuthorize("hasAnyRole('ADMIN', 'THERAPEUTE', 'RECEPTIONIST')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'THERAPEUTE', 'RECEPTIONIST', 'PATIENT')")
     public ResponseEntity<SeanceDTO> createSeance(@Valid @RequestBody CreateSeanceRequest request) {
         SeanceDTO created = seanceService.createSeance(request);
         return new ResponseEntity<>(created, HttpStatus.CREATED);
+    }
+
+    @GetMapping("/check-conflict")
+    @Operation(summary = "Check for scheduling conflicts")
+    public ResponseEntity<Boolean> checkConflict(
+            @RequestParam Long therapeuteId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime scheduledAt,
+            @RequestParam(defaultValue = "60") Integer durationMinutes) {
+        boolean hasConflict = seanceService.hasConflict(therapeuteId, scheduledAt, durationMinutes);
+        return ResponseEntity.ok(hasConflict);
     }
 
     @PatchMapping("/{id}/status")

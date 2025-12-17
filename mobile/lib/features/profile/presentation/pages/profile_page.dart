@@ -12,7 +12,7 @@ class ProfilePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<AuthBloc, AuthState>(
       builder: (context, state) {
-        final user = state is Authenticated ? state.user : null;
+        final username = state is Authenticated ? state.username : null;
         
         return Scaffold(
           body: Container(
@@ -24,7 +24,7 @@ class ProfilePage extends StatelessWidget {
                 slivers: [
                   // Header with avatar
                   SliverToBoxAdapter(
-                    child: _buildHeader(user),
+                    child: _buildHeader(username),
                   ),
                   // Stats
                   SliverToBoxAdapter(
@@ -50,7 +50,9 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(user) {
+  Widget _buildHeader(String? username) {
+    final initial = username != null && username.isNotEmpty ? username.substring(0, 1).toUpperCase() : 'U';
+    
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -72,7 +74,7 @@ class ProfilePage extends StatelessWidget {
             ),
             child: Center(
               child: Text(
-                user?.firstName?.substring(0, 1).toUpperCase() ?? 'U',
+                initial,
                 style: const TextStyle(
                   color: AppColors.background,
                   fontSize: 42,
@@ -83,7 +85,7 @@ class ProfilePage extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            user?.fullName ?? 'Utilisateur',
+            username ?? 'Utilisateur',
             style: const TextStyle(
               color: AppColors.textPrimary,
               fontSize: 24,
@@ -92,7 +94,7 @@ class ProfilePage extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            user?.email ?? 'email@example.com',
+            'Patient',
             style: TextStyle(
               color: AppColors.textSecondary,
               fontSize: 14,

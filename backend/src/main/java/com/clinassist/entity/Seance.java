@@ -92,6 +92,7 @@ public class Seance {
     }
 
     public enum SeanceStatus {
+        PENDING_APPROVAL,
         SCHEDULED,
         CONFIRMED,
         IN_PROGRESS,

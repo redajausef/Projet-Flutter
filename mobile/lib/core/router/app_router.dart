@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/splash_page.dart';
+import '../../features/auth/presentation/pages/register_patient_page.dart';
+import '../../features/auth/presentation/pages/select_therapeute_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
 import '../../features/appointments/presentation/pages/appointments_page.dart';
 import '../../features/appointments/presentation/pages/appointment_detail_page.dart';
@@ -24,6 +26,17 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/login',
       builder: (context, state) => const LoginPage(),
+    ),
+    GoRoute(
+      path: '/register',
+      builder: (context, state) => const RegisterPatientPage(),
+    ),
+    GoRoute(
+      path: '/select-therapeute',
+      builder: (context, state) {
+        final patientData = (state.extra as Map<String, dynamic>?) ?? {};
+        return SelectTherapeutePage(patientData: patientData);
+      },
     ),
     ShellRoute(
       navigatorKey: _shellNavigatorKey,

@@ -1,9 +1,12 @@
 package com.clinassist.controller;
 
+import com.clinassist.dto.PatientCreateRequest;
+import com.clinassist.dto.PatientDTO;
 import com.clinassist.dto.auth.AuthResponse;
 import com.clinassist.dto.auth.LoginRequest;
 import com.clinassist.dto.auth.RegisterRequest;
 import com.clinassist.service.AuthService;
+import com.clinassist.service.PatientService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -19,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final PatientService patientService;
 
     @PostMapping("/register")
     @Operation(summary = "Register a new user")
@@ -39,6 +43,13 @@ public class AuthController {
     public ResponseEntity<AuthResponse> refreshToken(@RequestHeader("X-Refresh-Token") String refreshToken) {
         AuthResponse response = authService.refreshToken(refreshToken);
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/register/patient")
+    @Operation(summary = "Register a new patient (public endpoint)")
+    public ResponseEntity<PatientDTO> registerPatient(@Valid @RequestBody PatientCreateRequest request) {
+        PatientDTO createdPatient = patientService.createPatient(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdPatient);
     }
 }
 

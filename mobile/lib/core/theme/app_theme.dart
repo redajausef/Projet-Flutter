@@ -7,10 +7,10 @@ class AppColors {
   static const Color primaryLight = Color(0xFF40A9FF);
   static const Color primaryDark = Color(0xFF096DD9);
 
-  // Accent Colors - Healthcare Green
-  static const Color accent = Color(0xFF52C41A);
-  static const Color accentLight = Color(0xFF73D13D);
-  static const Color accentDark = Color(0xFF389E0D);
+  // Accent Colors - Soft Teal
+  static const Color accent = Color(0xFF00B4D8);
+  static const Color accentLight = Color(0xFF48CAE4);
+  static const Color accentDark = Color(0xFF0096C7);
 
   // Background Colors - Clean Light
   static const Color background = Color(0xFFF5F7FA);
@@ -24,13 +24,13 @@ class AppColors {
   static const Color textMuted = Color(0xFF8C8C8C);
 
   // Status Colors
-  static const Color success = Color(0xFF52C41A);
+  static const Color success = Color(0xFF00B4D8);
   static const Color warning = Color(0xFFFAAD14);
   static const Color error = Color(0xFFFF4D4F);
   static const Color info = Color(0xFF1890FF);
 
   // Risk Colors for predictions
-  static const Color riskLow = Color(0xFF52C41A);
+  static const Color riskLow = Color(0xFF00B4D8);
   static const Color riskModerate = Color(0xFFFAAD14);
   static const Color riskHigh = Color(0xFFFF4D4F);
   static const Color riskCritical = Color(0xFF722ED1);
