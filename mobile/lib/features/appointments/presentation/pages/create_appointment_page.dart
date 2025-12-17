@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:dio/dio.dart';
 
 import '../../../auth/data/repositories/auth_repository.dart';
+import '../../../auth/data/models/therapeute_model.dart';
 import '../../data/models/create_seance_request.dart';
 import '../../data/repositories/seance_repository.dart';
 import '../bloc/seance_bloc.dart';
@@ -37,14 +39,16 @@ class _CreateAppointmentPageState extends State<CreateAppointmentPage> {
 
   Future<void> _loadTherapeutes() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
-      
       final authRepo = AuthRepository();
-      final therapeutes = await authRepo.getTherapeutes(token);
+      final therapeutesList = await authRepo.getAvailableTherapeutes();
       
       setState(() {
-        _therapeutes = therapeutes;
+        _therapeutes = therapeutesList.map((t) => {
+          'id': t.id,
+          'firstName': t.firstName,
+          'lastName': t.lastName,
+          'specialization': t.specialty ?? 'Psychologue',
+        }).toList();
         _isLoadingTherapeutes = false;
       });
     } catch (e) {
@@ -158,9 +162,14 @@ class _CreateAppointmentPageState extends State<CreateAppointmentPage> {
       final token = prefs.getString('auth_token') ?? '';
       final userId = prefs.getInt('user_id') ?? 0;
 
-      // Get patient ID from user ID
-      final authRepo = AuthRepository();
-      final patientId = userId; // For now, using userId directly
+      // Get patient ID from user ID using the patient repository
+      final dio = Dio(BaseOptions(
+        baseUrl: 'http://localhost:8080/api',
+        headers: {'Authorization': 'Bearer $token'},
+      ));
+      
+      final patientResponse = await dio.get('/patients/user/$userId');
+      final patientId = patientResponse.data['id'] as int;
       
       final scheduledAt = DateTime(
         _selectedDate!.year,
