@@ -1,21 +1,26 @@
 package com.clinassist.service;
 
+import com.clinassist.dto.PatientCreateRequest;
 import com.clinassist.dto.PatientDTO;
 import com.clinassist.entity.Patient;
 import com.clinassist.entity.Seance;
 import com.clinassist.entity.Therapeute;
+import com.clinassist.entity.User;
 import com.clinassist.exception.ResourceNotFoundException;
 import com.clinassist.repository.PatientRepository;
 import com.clinassist.repository.SeanceRepository;
 import com.clinassist.repository.TherapeuteRepository;
+import com.clinassist.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -25,9 +30,83 @@ public class PatientService {
     private final PatientRepository patientRepository;
     private final TherapeuteRepository therapeuteRepository;
     private final SeanceRepository seanceRepository;
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     public Page<PatientDTO> getAllPatients(Pageable pageable) {
         return patientRepository.findAll(pageable).map(this::convertToDTO);
+    }
+
+    @Transactional
+    public PatientDTO createPatient(PatientCreateRequest request) {
+        // Check if email already exists
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new IllegalArgumentException("Email already exists");
+        }
+
+        // Create User entity
+        String username = generateUniqueUsername(request.getEmail());
+        String tempPassword = UUID.randomUUID().toString().substring(0, 8);
+        
+        User user = User.builder()
+                .username(username)
+                .email(request.getEmail())
+                .password(passwordEncoder.encode(tempPassword))
+                .firstName(request.getFirstName())
+                .lastName(request.getLastName())
+                .phoneNumber(request.getPhoneNumber())
+                .role(User.Role.PATIENT)
+                .isActive(true)
+                .isEmailVerified(false)
+                .build();
+
+        // Create Patient entity
+        Patient patient = Patient.builder()
+                .user(user)
+                .dateOfBirth(request.getDateOfBirth())
+                .gender(request.getGender())
+                .address(request.getAddress())
+                .city(request.getCity())
+                .postalCode(request.getPostalCode())
+                .country(request.getCountry())
+                .emergencyContactName(request.getEmergencyContactName())
+                .emergencyContactPhone(request.getEmergencyContactPhone())
+                .emergencyContactRelation(request.getEmergencyContactRelation())
+                .medicalHistory(request.getMedicalHistory())
+                .currentMedications(request.getCurrentMedications())
+                .allergies(request.getAllergies())
+                .notes(request.getNotes())
+                .insuranceProvider(request.getInsuranceProvider())
+                .insuranceNumber(request.getInsuranceNumber())
+                .status(request.getStatus() != null ? request.getStatus() : Patient.PatientStatus.ACTIVE)
+                .build();
+
+        // Assign therapeute if provided
+        if (request.getAssignedTherapeuteId() != null) {
+            Therapeute therapeute = therapeuteRepository.findById(request.getAssignedTherapeuteId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Therapeute not found"));
+            patient.setAssignedTherapeute(therapeute);
+        }
+
+        // Save patient (cascades to user)
+        patient = patientRepository.save(patient);
+
+        // TODO: Send email with temporary password
+
+        return convertToDTO(patient);
+    }
+
+    private String generateUniqueUsername(String email) {
+        String baseUsername = email.split("@")[0].toLowerCase();
+        String username = baseUsername;
+        int counter = 1;
+        
+        while (userRepository.existsByUsername(username)) {
+            username = baseUsername + counter;
+            counter++;
+        }
+        
+        return username;
     }
 
     public Page<PatientDTO> searchPatients(String search, Pageable pageable) {

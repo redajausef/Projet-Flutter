@@ -103,8 +103,10 @@ public class SecurityConfig {
     }
 
     @Bean
+    @SuppressWarnings("deprecation")
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
+        // Plain-text password for academic project (no hashing)
+        return org.springframework.security.crypto.password.NoOpPasswordEncoder.getInstance();
     }
 }
 

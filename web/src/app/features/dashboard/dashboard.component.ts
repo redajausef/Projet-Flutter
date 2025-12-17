@@ -1,8 +1,12 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { ApiService } from '../../core/services/api.service';
+import { Subject, takeUntil, forkJoin } from 'rxjs';
+import { DashboardService } from '../../core/services/dashboard.service';
+import { SeanceService } from '../../core/services/seance.service';
+import { PatientService } from '../../core/services/patient.service';
 import { AuthService } from '../../core/services/auth.service';
+import { DashboardStats, Seance, Patient, ChartDataPoint } from '../../core/models';
 
 @Component({
   selector: 'app-dashboard',
@@ -22,7 +26,7 @@ import { AuthService } from '../../core/services/auth.service';
 
     <!-- Stats Cards -->
     <div class="row g-4 mb-4">
-      @for (stat of analyticsCards; track stat.title) {
+      @for (stat of analyticsCards(); track stat.title) {
         <div class="col-sm-6 col-xl-3">
           <div class="card stat-card h-100">
             <div class="card-body">
@@ -59,7 +63,7 @@ import { AuthService } from '../../core/services/auth.service';
           <div class="card-body pt-4">
             <div class="chart-wrapper">
               <div class="chart-bars">
-                @for (day of weeklyData; track day.name) {
+                @for (day of weeklyData(); track day.name) {
                   <div class="chart-column">
                     <div class="bar-wrapper">
                       <div class="bar" [style.height.%]="day.value" [class.active]="day.isToday"></div>
@@ -81,7 +85,7 @@ import { AuthService } from '../../core/services/auth.service';
             <h5 class="mb-0">Types de Séances</h5>
           </div>
           <div class="card-body pt-4">
-            @for (type of sessionTypes; track type.name; let last = $last) {
+            @for (type of sessionTypes(); track type.name; let last = $last) {
               <div class="type-item" [class.mb-4]="!last">
                 <div class="d-flex align-items-center">
                   <div class="type-icon" [class]="type.bgClass">
@@ -125,7 +129,7 @@ import { AuthService } from '../../core/services/auth.service';
                 </tr>
               </thead>
               <tbody>
-                @for (session of recentSessions; track session.id) {
+                @for (session of recentSessions(); track session.id) {
                   <tr>
                     <td class="ps-4">
                       <div class="d-flex align-items-center">
@@ -157,10 +161,10 @@ import { AuthService } from '../../core/services/auth.service';
         <div class="card h-100">
           <div class="card-header bg-transparent d-flex justify-content-between align-items-center py-3">
             <h5 class="mb-0">Alertes IA</h5>
-            <span class="badge bg-danger rounded-pill px-3">{{ alerts.length }}</span>
+            <span class="badge bg-danger rounded-pill px-3">{{ alerts().length }}</span>
           </div>
           <div class="card-body p-0">
-            @for (alert of alerts; track alert.id; let last = $last) {
+            @for (alert of alerts(); track alert.id; let last = $last) {
               <div class="alert-item" [class.border-bottom]="!last">
                 <div class="d-flex">
                   <div class="alert-icon" [class]="alert.level === 'high' ? 'danger' : 'warning'">
@@ -475,54 +479,268 @@ import { AuthService } from '../../core/services/auth.service';
     }
   `]
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnInit, OnDestroy {
   authService = inject(AuthService);
-  private apiService = inject(ApiService);
+  private dashboardService = inject(DashboardService);
+  private seanceService = inject(SeanceService);
+  private patientService = inject(PatientService);
+  private destroy$ = new Subject<void>();
 
-  stats = signal<any>(null);
+  // State
+  loading = signal(true);
+  stats = signal<DashboardStats | null>(null);
+  recentSeances = signal<Seance[]>([]);
+  highRiskPatients = signal<Patient[]>([]);
+  viewMode = signal<'week' | 'month'>('week');
 
-  analyticsCards = [
-    { title: 'Total Patients', value: '156', change: '+12%', icon: 'ti ti-trending-up', badgeClass: 'bg-success-subtle text-success', extra: '32', extraText: 'nouveaux ce mois', textClass: 'text-success' },
-    { title: 'Séances Aujourd\'hui', value: '8', change: '+5', icon: 'ti ti-arrow-up', badgeClass: 'bg-primary-subtle text-primary', extra: '3', extraText: 'complétées', textClass: 'text-primary' },
-    { title: 'Taux de Présence', value: '94.2%', change: '+2.1%', icon: 'ti ti-trending-up', badgeClass: 'bg-success-subtle text-success', extra: '↑', extraText: 'vs mois dernier', textClass: 'text-success' },
-    { title: 'Alertes IA', value: '5', change: '-2', icon: 'ti ti-trending-down', badgeClass: 'bg-warning-subtle text-warning', extra: '2', extraText: 'prioritaires', textClass: 'text-warning' }
-  ];
+  // Computed analytics cards
+  analyticsCards = computed(() => {
+    const s = this.stats();
+    if (!s) return this.getDefaultCards();
+    
+    return [
+      { 
+        title: 'Total Patients', 
+        value: s.totalPatients.toString(), 
+        change: `+${s.patientGrowthPercentage?.toFixed(0) || 12}%`, 
+        icon: 'ti ti-trending-up', 
+        badgeClass: 'bg-success-subtle text-success', 
+        extra: s.newPatientsThisMonth?.toString() || '32', 
+        extraText: 'nouveaux ce mois', 
+        textClass: 'text-success' 
+      },
+      { 
+        title: 'Séances Aujourd\'hui', 
+        value: s.todaySeances?.toString() || '8', 
+        change: `+${s.upcomingSeances || 5}`, 
+        icon: 'ti ti-arrow-up', 
+        badgeClass: 'bg-primary-subtle text-primary', 
+        extra: s.completedSeancesThisMonth?.toString() || '3', 
+        extraText: 'complétées ce mois', 
+        textClass: 'text-primary' 
+      },
+      { 
+        title: 'Taux de Présence', 
+        value: `${s.seanceCompletionRate?.toFixed(1) || 94.2}%`, 
+        change: '+2.1%', 
+        icon: 'ti ti-trending-up', 
+        badgeClass: 'bg-success-subtle text-success', 
+        extra: '↑', 
+        extraText: 'vs mois dernier', 
+        textClass: 'text-success' 
+      },
+      { 
+        title: 'Alertes IA', 
+        value: s.highRiskPatients?.toString() || '5', 
+        change: '-2', 
+        icon: 'ti ti-trending-down', 
+        badgeClass: 'bg-warning-subtle text-warning', 
+        extra: '2', 
+        extraText: 'prioritaires', 
+        textClass: 'text-warning' 
+      }
+    ];
+  });
 
-  weeklyData = [
-    { name: 'Lun', value: 65, count: 8, isToday: false },
-    { name: 'Mar', value: 80, count: 10, isToday: false },
-    { name: 'Mer', value: 45, count: 6, isToday: false },
-    { name: 'Jeu', value: 90, count: 12, isToday: false },
-    { name: 'Ven', value: 70, count: 9, isToday: true },
-    { name: 'Sam', value: 30, count: 4, isToday: false },
-    { name: 'Dim', value: 10, count: 1, isToday: false }
-  ];
+  weeklyData = computed(() => {
+    const s = this.stats();
+    const trend = s?.seancesTrend || [];
+    const dayNames = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+    const today = new Date().getDay();
+    const todayIndex = today === 0 ? 6 : today - 1; // Convert Sunday=0 to index 6
+    
+    if (trend.length > 0) {
+      const maxValue = Math.max(...trend.map(t => t.value));
+      return trend.map((t, i) => ({
+        name: t.label,
+        value: maxValue > 0 ? (t.value / maxValue) * 100 : 0,
+        count: t.value,
+        isToday: i === todayIndex
+      }));
+    }
+    
+    // No data available
+    return [
+      { name: 'Lun', value: 0, count: 0, isToday: todayIndex === 0 },
+      { name: 'Mar', value: 0, count: 0, isToday: todayIndex === 1 },
+      { name: 'Mer', value: 0, count: 0, isToday: todayIndex === 2 },
+      { name: 'Jeu', value: 0, count: 0, isToday: todayIndex === 3 },
+      { name: 'Ven', value: 0, count: 0, isToday: todayIndex === 4 },
+      { name: 'Sam', value: 0, count: 0, isToday: todayIndex === 5 },
+      { name: 'Dim', value: 0, count: 0, isToday: todayIndex === 6 }
+    ];
+  });
 
-  sessionTypes = [
-    { name: 'Consultation', percent: 45, icon: 'ti ti-user', bgClass: 'bg-primary', barClass: 'bg-primary' },
-    { name: 'Thérapie', percent: 30, icon: 'ti ti-brain', bgClass: 'bg-success', barClass: 'bg-success' },
-    { name: 'Suivi', percent: 15, icon: 'ti ti-refresh', bgClass: 'bg-warning', barClass: 'bg-warning' },
-    { name: 'Vidéo', percent: 10, icon: 'ti ti-video', bgClass: 'bg-info', barClass: 'bg-info' }
-  ];
+  sessionTypes = computed(() => {
+    const s = this.stats();
+    if (s?.seancesByType) {
+      const total = Object.values(s.seancesByType).reduce((a, b) => a + b, 0);
+      const types = [
+        { key: 'CONSULTATION', name: 'Consultation', icon: 'ti ti-user', bgClass: 'bg-primary', barClass: 'bg-primary' },
+        { key: 'THERAPY', name: 'Thérapie', icon: 'ti ti-heart', bgClass: 'bg-success', barClass: 'bg-success' },
+        { key: 'FOLLOW_UP', name: 'Suivi', icon: 'ti ti-refresh', bgClass: 'bg-warning', barClass: 'bg-warning' },
+        { key: 'VIDEO', name: 'Vidéo', icon: 'ti ti-video', bgClass: 'bg-info', barClass: 'bg-info' }
+      ];
+      
+      return types.map(t => ({
+        ...t,
+        percent: total > 0 ? Math.round((s.seancesByType[t.key] || 0) / total * 100) : 0
+      }));
+    }
+    
+    return [
+      { name: 'Consultation', percent: 0, icon: 'ti ti-user', bgClass: 'bg-primary', barClass: 'bg-primary' },
+      { name: 'Thérapie', percent: 0, icon: 'ti ti-heart', bgClass: 'bg-success', barClass: 'bg-success' },
+      { name: 'Suivi', percent: 0, icon: 'ti ti-refresh', bgClass: 'bg-warning', barClass: 'bg-warning' },
+      { name: 'Vidéo', percent: 0, icon: 'ti ti-video', bgClass: 'bg-info', barClass: 'bg-info' }
+    ];
+  });
 
-  recentSessions = [
-    { id: 1, patient: 'Marie Dupont', initials: 'MD', type: 'Consultation', status: 'Terminée', statusClass: 'bg-success-subtle text-success', statusIcon: 'ti ti-check', date: 'Aujourd\'hui', duration: '45 min', avatarClass: 'bg-primary' },
-    { id: 2, patient: 'Jean Martin', initials: 'JM', type: 'Thérapie cognitive', status: 'Terminée', statusClass: 'bg-success-subtle text-success', statusIcon: 'ti ti-check', date: 'Aujourd\'hui', duration: '60 min', avatarClass: 'bg-success' },
-    { id: 3, patient: 'Sophie Bernard', initials: 'SB', type: 'Suivi mensuel', status: 'En cours', statusClass: 'bg-warning-subtle text-warning', statusIcon: 'ti ti-clock', date: 'Aujourd\'hui', duration: '30 min', avatarClass: 'bg-warning' },
-    { id: 4, patient: 'Pierre Leroy', initials: 'PL', type: 'Consultation', status: 'Planifiée', statusClass: 'bg-secondary-subtle text-secondary', statusIcon: 'ti ti-calendar', date: '15:30', duration: '45 min', avatarClass: 'bg-info' },
-    { id: 5, patient: 'Claire Moreau', initials: 'CM', type: 'Vidéo', status: 'Planifiée', statusClass: 'bg-secondary-subtle text-secondary', statusIcon: 'ti ti-calendar', date: '17:00', duration: '30 min', avatarClass: 'bg-danger' }
-  ];
+  recentSessions = computed(() => {
+    const seances = this.recentSeances();
+    const colors = ['bg-primary', 'bg-success', 'bg-warning', 'bg-info', 'bg-danger'];
+    
+    return seances.map((s, i) => ({
+      id: s.id,
+      patient: s.patientName,
+      initials: this.getInitials(s.patientName),
+      type: this.getSeanceTypeLabel(s.type),
+      status: this.getStatusLabel(s.status),
+      statusClass: this.getStatusClass(s.status),
+      statusIcon: this.getStatusIcon(s.status),
+      date: this.formatDate(s.scheduledAt),
+      duration: `${s.durationMinutes} min`,
+      avatarClass: colors[i % colors.length]
+    }));
+  });
 
-  alerts = [
-    { id: 1, patient: 'Sophie Bernard', score: 82, level: 'high', message: 'Risque d\'abandon - 3 absences consécutives' },
-    { id: 2, patient: 'Thomas Petit', score: 68, level: 'high', message: 'Score anxiété en hausse significative' },
-    { id: 3, patient: 'Emma Garcia', score: 54, level: 'medium', message: 'Progression ralentie depuis 4 semaines' }
-  ];
+  alerts = computed(() => {
+    const patients = this.highRiskPatients();
+    return patients.slice(0, 5).map((p, i) => ({
+      id: p.id,
+      patient: p.fullName || `${p.firstName} ${p.lastName}`,
+      score: p.riskScore || 0,
+      level: (p.riskScore || 0) >= 70 ? 'high' : 'medium',
+      message: this.getRiskMessage(p)
+    }));
+  });
 
   ngOnInit() {
-    this.apiService.getDashboardStats().subscribe({
-      next: (data) => this.stats.set(data),
-      error: () => {}
+    this.loadDashboardData();
+  }
+
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  loadDashboardData() {
+    this.loading.set(true);
+    
+    forkJoin({
+      stats: this.dashboardService.getDashboardStats(),
+      seances: this.seanceService.getTodaySeances(),
+      highRisk: this.patientService.getHighRiskPatients(50)
+    }).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (data) => {
+        this.stats.set(data.stats);
+        this.recentSeances.set(data.seances);
+        this.highRiskPatients.set(data.highRisk);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.loading.set(false);
+      }
     });
+  }
+
+  refreshDashboard() {
+    this.loadDashboardData();
+  }
+
+  setViewMode(mode: 'week' | 'month') {
+    this.viewMode.set(mode);
+  }
+
+  private getDefaultCards() {
+    return [
+      { title: 'Total Patients', value: '0', change: '0%', icon: 'ti ti-trending-up', badgeClass: 'bg-secondary-subtle text-secondary', extra: '0', extraText: 'nouveaux ce mois', textClass: 'text-secondary' },
+      { title: 'Séances Aujourd\'hui', value: '0', change: '0', icon: 'ti ti-minus', badgeClass: 'bg-secondary-subtle text-secondary', extra: '0', extraText: 'complétées', textClass: 'text-secondary' },
+      { title: 'Taux de Présence', value: '0%', change: '0%', icon: 'ti ti-minus', badgeClass: 'bg-secondary-subtle text-secondary', extra: '-', extraText: 'vs mois dernier', textClass: 'text-secondary' },
+      { title: 'Alertes IA', value: '0', change: '0', icon: 'ti ti-minus', badgeClass: 'bg-secondary-subtle text-secondary', extra: '0', extraText: 'prioritaires', textClass: 'text-secondary' }
+    ];
+  }
+
+  private getInitials(name: string): string {
+    if (!name) return 'XX';
+    const parts = name.split(' ');
+    return parts.map(p => p.charAt(0)).join('').substring(0, 2).toUpperCase();
+  }
+
+  private getSeanceTypeLabel(type: Seance['type']): string {
+    const labels: Record<string, string> = {
+      'CONSULTATION': 'Consultation',
+      'THERAPY': 'Thérapie',
+      'FOLLOW_UP': 'Suivi',
+      'VIDEO': 'Vidéo',
+      'EMERGENCY': 'Urgence'
+    };
+    return labels[type] || type;
+  }
+
+  private getStatusLabel(status: Seance['status']): string {
+    const labels: Record<string, string> = {
+      'SCHEDULED': 'Planifiée',
+      'CONFIRMED': 'Confirmée',
+      'IN_PROGRESS': 'En cours',
+      'COMPLETED': 'Terminée',
+      'CANCELLED': 'Annulée',
+      'NO_SHOW': 'Absent'
+    };
+    return labels[status] || status;
+  }
+
+  private getStatusClass(status: Seance['status']): string {
+    const classes: Record<string, string> = {
+      'SCHEDULED': 'bg-secondary-subtle text-secondary',
+      'CONFIRMED': 'bg-info-subtle text-info',
+      'IN_PROGRESS': 'bg-warning-subtle text-warning',
+      'COMPLETED': 'bg-success-subtle text-success',
+      'CANCELLED': 'bg-danger-subtle text-danger',
+      'NO_SHOW': 'bg-danger-subtle text-danger'
+    };
+    return classes[status] || 'bg-secondary-subtle text-secondary';
+  }
+
+  private getStatusIcon(status: Seance['status']): string {
+    const icons: Record<string, string> = {
+      'SCHEDULED': 'ti ti-calendar',
+      'CONFIRMED': 'ti ti-calendar-check',
+      'IN_PROGRESS': 'ti ti-clock',
+      'COMPLETED': 'ti ti-check',
+      'CANCELLED': 'ti ti-x',
+      'NO_SHOW': 'ti ti-user-off'
+    };
+    return icons[status] || 'ti ti-calendar';
+  }
+
+  private formatDate(dateString: string): string {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const today = new Date();
+    
+    if (date.toDateString() === today.toDateString()) {
+      return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+    }
+    
+    return date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
+  }
+
+  private getRiskMessage(patient: Patient): string {
+    const risk = patient.riskScore || 0;
+    if (risk >= 80) return 'Risque critique - Intervention recommandée';
+    if (risk >= 70) return 'Risque d\'abandon élevé';
+    if (risk >= 50) return 'Progression ralentie';
+    return 'À surveiller';
   }
 }

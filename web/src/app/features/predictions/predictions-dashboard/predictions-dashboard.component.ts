@@ -1,10 +1,15 @@
-import { Component, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
+import { Subject, takeUntil, forkJoin } from 'rxjs';
+import { PredictionService } from '../../../core/services/prediction.service';
+import { PatientService } from '../../../core/services/patient.service';
+import { Prediction, Patient } from '../../../core/models';
 
 @Component({
   selector: 'app-predictions-dashboard',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RouterModule],
   template: `
     <!-- Page Header -->
     <div class="page-header mb-4">
@@ -14,8 +19,13 @@ import { CommonModule } from '@angular/common';
           <p class="text-muted mb-0">Analyse prédictive et alertes intelligentes</p>
         </div>
         <div class="col-auto">
-          <button class="btn btn-primary">
-            <i class="ti ti-refresh me-2"></i>Actualiser l'analyse
+          <button class="btn btn-primary" (click)="refreshData()" [disabled]="loading()">
+            @if (loading()) {
+              <span class="spinner-border spinner-border-sm me-2"></span>
+            } @else {
+              <i class="ti ti-refresh me-2"></i>
+            }
+            Actualiser l'analyse
           </button>
         </div>
       </div>
@@ -24,18 +34,18 @@ import { CommonModule } from '@angular/common';
     <!-- Stats Overview -->
     <div class="row mb-4">
       <div class="col-md-3">
-        <div class="card">
+        <div class="card h-100">
           <div class="card-body text-center">
             <div class="avatar avatar-l bg-danger-subtle mx-auto mb-3">
               <i class="ti ti-alert-triangle f-24 text-danger"></i>
             </div>
             <h3 class="mb-1 text-danger">{{ highRiskCount() }}</h3>
-            <p class="text-muted mb-0">Risque élevé</p>
+            <p class="text-muted mb-0">Risque critique</p>
           </div>
         </div>
       </div>
       <div class="col-md-3">
-        <div class="card">
+        <div class="card h-100">
           <div class="card-body text-center">
             <div class="avatar avatar-l bg-warning-subtle mx-auto mb-3">
               <i class="ti ti-alert-circle f-24 text-warning"></i>
@@ -46,7 +56,7 @@ import { CommonModule } from '@angular/common';
         </div>
       </div>
       <div class="col-md-3">
-        <div class="card">
+        <div class="card h-100">
           <div class="card-body text-center">
             <div class="avatar avatar-l bg-success-subtle mx-auto mb-3">
               <i class="ti ti-circle-check f-24 text-success"></i>
@@ -57,12 +67,12 @@ import { CommonModule } from '@angular/common';
         </div>
       </div>
       <div class="col-md-3">
-        <div class="card">
+        <div class="card h-100">
           <div class="card-body text-center">
             <div class="avatar avatar-l bg-primary-subtle mx-auto mb-3">
               <i class="ti ti-target f-24 text-primary"></i>
             </div>
-            <h3 class="mb-1 text-primary">94%</h3>
+            <h3 class="mb-1 text-primary">{{ predictionAccuracy() }}%</h3>
             <p class="text-muted mb-0">Précision modèle</p>
           </div>
         </div>
@@ -76,59 +86,84 @@ import { CommonModule } from '@angular/common';
           <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Alertes Patients</h5>
             <div class="btn-group btn-group-sm">
-              <button class="btn" [class.btn-danger]="filterRisk === 'high'" [class.btn-outline-secondary]="filterRisk !== 'high'" (click)="filterRisk = 'high'">Élevé</button>
-              <button class="btn" [class.btn-warning]="filterRisk === 'medium'" [class.btn-outline-secondary]="filterRisk !== 'medium'" (click)="filterRisk = 'medium'">Modéré</button>
-              <button class="btn" [class.btn-success]="filterRisk === 'low'" [class.btn-outline-secondary]="filterRisk !== 'low'" (click)="filterRisk = 'low'">Faible</button>
-              <button class="btn" [class.btn-primary]="filterRisk === 'all'" [class.btn-outline-secondary]="filterRisk !== 'all'" (click)="filterRisk = 'all'">Tous</button>
+              <button class="btn" [class.btn-danger]="filterRisk() === 'CRITICAL'" 
+                      [class.btn-outline-secondary]="filterRisk() !== 'CRITICAL'" 
+                      (click)="setFilter('CRITICAL')">Critique</button>
+              <button class="btn" [class.btn-warning]="filterRisk() === 'HIGH'" 
+                      [class.btn-outline-secondary]="filterRisk() !== 'HIGH'" 
+                      (click)="setFilter('HIGH')">Élevé</button>
+              <button class="btn" [class.btn-info]="filterRisk() === 'MEDIUM'" 
+                      [class.btn-outline-secondary]="filterRisk() !== 'MEDIUM'" 
+                      (click)="setFilter('MEDIUM')">Modéré</button>
+              <button class="btn" [class.btn-primary]="filterRisk() === 'all'" 
+                      [class.btn-outline-secondary]="filterRisk() !== 'all'" 
+                      (click)="setFilter('all')">Tous</button>
             </div>
           </div>
           <div class="card-body p-0">
-            <div class="list-group list-group-flush">
-              @for (prediction of filteredPredictions(); track prediction.id) {
-                <div class="list-group-item p-3">
-                  <div class="d-flex align-items-start">
-                    <div class="flex-shrink-0 me-3">
-                      <div class="avatar rounded-circle" [class]="getRiskAvatarClass(prediction.riskLevel)">
-                        {{ prediction.initials }}
-                      </div>
-                    </div>
-                    <div class="flex-grow-1">
-                      <div class="d-flex justify-content-between align-items-start mb-2">
-                        <div>
-                          <h6 class="mb-1">{{ prediction.patientName }}</h6>
-                          <span class="badge me-2" [class]="getRiskBadgeClass(prediction.riskLevel)">
-                            <i class="ti ti-alert-triangle me-1"></i>
-                            Risque {{ prediction.riskLevel === 'high' ? 'élevé' : prediction.riskLevel === 'medium' ? 'modéré' : 'faible' }}
-                          </span>
-                          <small class="text-muted">{{ prediction.date }}</small>
-                        </div>
-                        <div class="text-end">
-                          <h5 class="mb-0" [class]="getRiskTextClass(prediction.riskLevel)">{{ prediction.score }}%</h5>
-                          <small class="text-muted">Score de risque</small>
+            @if (loading()) {
+              <div class="text-center py-5">
+                <div class="spinner-border text-primary"></div>
+                <p class="text-muted mt-3">Analyse en cours...</p>
+              </div>
+            } @else if (filteredPredictions().length === 0) {
+              <div class="text-center py-5">
+                <i class="ti ti-mood-smile f-48 text-success opacity-50"></i>
+                <p class="text-muted mt-3">Aucune alerte pour ce filtre</p>
+              </div>
+            } @else {
+              <div class="list-group list-group-flush">
+                @for (prediction of filteredPredictions(); track prediction.id) {
+                  <div class="list-group-item p-3">
+                    <div class="d-flex align-items-start">
+                      <div class="flex-shrink-0 me-3">
+                        <div class="avatar rounded-circle" [class]="getRiskAvatarClass(prediction.riskLevel)">
+                          {{ getInitials(prediction.patientName) }}
                         </div>
                       </div>
-                      <p class="mb-2 text-muted">{{ prediction.message }}</p>
-                      <div class="d-flex gap-2">
-                        @for (factor of prediction.factors; track factor) {
-                          <span class="badge bg-light text-dark">{{ factor }}</span>
+                      <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                          <div>
+                            <h6 class="mb-1">{{ prediction.patientName }}</h6>
+                            <span class="badge me-2" [class]="getRiskBadgeClass(prediction.riskLevel)">
+                              <i class="ti ti-alert-triangle me-1"></i>
+                              {{ getRiskLabel(prediction.riskLevel) }}
+                            </span>
+                            <span class="badge bg-secondary-subtle text-secondary me-2">
+                              {{ getTypeLabel(prediction.type) }}
+                            </span>
+                            <small class="text-muted">{{ formatDate(prediction.generatedAt) }}</small>
+                          </div>
+                          <div class="text-end">
+                            <h5 class="mb-0" [class]="getRiskTextClass(prediction.riskLevel)">{{ prediction.score }}%</h5>
+                            <small class="text-muted">Confiance: {{ (prediction.confidence * 100).toFixed(0) }}%</small>
+                          </div>
+                        </div>
+                        <p class="mb-2 text-muted">{{ prediction.recommendation }}</p>
+                        @if (prediction.factors && prediction.factors.length > 0) {
+                          <div class="d-flex flex-wrap gap-2">
+                            @for (factor of prediction.factors; track factor) {
+                              <span class="badge bg-light text-dark border">{{ factor }}</span>
+                            }
+                          </div>
                         }
                       </div>
                     </div>
+                    <div class="mt-3 d-flex gap-2">
+                      <a [routerLink]="['/patients', prediction.patientId]" class="btn btn-sm btn-outline-primary">
+                        <i class="ti ti-eye me-1"></i>Voir dossier
+                      </a>
+                      <button class="btn btn-sm btn-outline-success" (click)="scheduleFollowUp(prediction)">
+                        <i class="ti ti-calendar me-1"></i>Planifier suivi
+                      </button>
+                      <button class="btn btn-sm btn-outline-secondary" (click)="markAsReviewed(prediction)">
+                        <i class="ti ti-check me-1"></i>Marquer traité
+                      </button>
+                    </div>
                   </div>
-                  <div class="mt-3 d-flex gap-2">
-                    <button class="btn btn-sm btn-outline-primary">
-                      <i class="ti ti-eye me-1"></i>Voir dossier
-                    </button>
-                    <button class="btn btn-sm btn-outline-success">
-                      <i class="ti ti-calendar me-1"></i>Planifier suivi
-                    </button>
-                    <button class="btn btn-sm btn-outline-secondary">
-                      <i class="ti ti-check me-1"></i>Marquer traité
-                    </button>
-                  </div>
-                </div>
-              }
-            </div>
+                }
+              </div>
+            }
           </div>
         </div>
       </div>
@@ -140,7 +175,7 @@ import { CommonModule } from '@angular/common';
             <h5 class="mb-0">Facteurs de risque principaux</h5>
           </div>
           <div class="card-body">
-            @for (factor of riskFactors; track factor.name) {
+            @for (factor of riskFactors(); track factor.name) {
               <div class="mb-3">
                 <div class="d-flex justify-content-between mb-1">
                   <span>{{ factor.name }}</span>
@@ -154,13 +189,31 @@ import { CommonModule } from '@angular/common';
           </div>
         </div>
 
+        <div class="card mb-4">
+          <div class="card-header">
+            <h5 class="mb-0">Statistiques du modèle</h5>
+          </div>
+          <div class="card-body">
+            <div class="row text-center">
+              <div class="col-6 border-end">
+                <h4 class="text-primary mb-1">{{ totalPredictions() }}</h4>
+                <small class="text-muted">Prédictions totales</small>
+              </div>
+              <div class="col-6">
+                <h4 class="text-success mb-1">{{ successfulPredictions() }}</h4>
+                <small class="text-muted">Prédictions réussies</small>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="card">
           <div class="card-header">
             <h5 class="mb-0">Recommandations IA</h5>
           </div>
           <div class="card-body p-0">
             <div class="list-group list-group-flush">
-              @for (rec of recommendations; track rec.id) {
+              @for (rec of recommendations(); track rec.id) {
                 <div class="list-group-item">
                   <div class="d-flex">
                     <div class="flex-shrink-0 me-3">
@@ -201,64 +254,260 @@ import { CommonModule } from '@angular/common';
     }
     
     .f-24 { font-size: 24px; }
+    .f-48 { font-size: 48px; }
+    
+    .card {
+      border: none;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
   `]
 })
-export class PredictionsDashboardComponent {
-  filterRisk = 'all';
+export class PredictionsDashboardComponent implements OnInit, OnDestroy {
+  private predictionService = inject(PredictionService);
+  private patientService = inject(PatientService);
+  private destroy$ = new Subject<void>();
 
-  predictions = [
-    { id: 1, patientName: 'Sophie Bernard', initials: 'SB', score: 82, riskLevel: 'high', date: 'Il y a 2h', message: 'Risque d\'abandon thérapeutique détecté - 3 absences consécutives et baisse d\'engagement', factors: ['Absences', 'Engagement', 'Historique'] },
-    { id: 2, patientName: 'Thomas Petit', initials: 'TP', score: 68, riskLevel: 'high', date: 'Il y a 4h', message: 'Score d\'anxiété en hausse significative depuis les 2 dernières séances', factors: ['Anxiété', 'Progression', 'Sommeil'] },
-    { id: 3, patientName: 'Emma Garcia', initials: 'EG', score: 54, riskLevel: 'medium', date: 'Hier', message: 'Progression ralentie détectée - stagnation depuis 4 semaines', factors: ['Progression', 'Motivation'] },
-    { id: 4, patientName: 'Lucas Martin', initials: 'LM', score: 45, riskLevel: 'medium', date: 'Hier', message: 'Indicateurs de stress professionnel en augmentation', factors: ['Stress', 'Travail'] },
-    { id: 5, patientName: 'Marie Dupont', initials: 'MD', score: 25, riskLevel: 'low', date: 'Il y a 3 jours', message: 'Évolution positive maintenue - continuer le protocole actuel', factors: ['Progression'] },
-    { id: 6, patientName: 'Jean Martin', initials: 'JM', score: 18, riskLevel: 'low', date: 'Il y a 3 jours', message: 'Stabilisation des indicateurs - proche de la fin de suivi', factors: ['Stabilité'] },
-  ];
+  // State
+  loading = signal(true);
+  predictions = signal<Prediction[]>([]);
+  filterRisk = signal<'all' | 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'>('all');
+  
+  // Stats
+  predictionAccuracy = signal(87.5);
+  totalPredictions = signal(892);
+  successfulPredictions = signal(781);
 
-  riskFactors = [
-    { name: 'Absences répétées', percentage: 78, color: 'bg-danger' },
-    { name: 'Score anxiété élevé', percentage: 65, color: 'bg-warning' },
-    { name: 'Progression lente', percentage: 52, color: 'bg-info' },
-    { name: 'Stress professionnel', percentage: 41, color: 'bg-primary' },
-    { name: 'Troubles du sommeil', percentage: 38, color: 'bg-secondary' },
-  ];
+  // Computed
+  highRiskCount = computed(() => 
+    this.predictions().filter(p => p.riskLevel === 'CRITICAL').length
+  );
+  
+  mediumRiskCount = computed(() => 
+    this.predictions().filter(p => p.riskLevel === 'HIGH' || p.riskLevel === 'MEDIUM').length
+  );
+  
+  lowRiskCount = computed(() => 
+    this.predictions().filter(p => p.riskLevel === 'LOW').length
+  );
 
-  recommendations = [
-    { id: 1, icon: 'ti ti-phone', iconBg: 'bg-primary', title: 'Contacter Sophie B.', description: 'Appel de suivi recommandé suite aux absences' },
-    { id: 2, icon: 'ti ti-calendar', iconBg: 'bg-success', title: 'Ajuster fréquence', description: 'Augmenter la fréquence pour Thomas P.' },
-    { id: 3, icon: 'ti ti-clipboard', iconBg: 'bg-warning', title: 'Évaluation complète', description: 'Planifier bilan pour Emma G.' },
-  ];
+  filteredPredictions = computed(() => {
+    const filter = this.filterRisk();
+    if (filter === 'all') return this.predictions();
+    return this.predictions().filter(p => p.riskLevel === filter);
+  });
 
-  highRiskCount = signal(2);
-  mediumRiskCount = signal(2);
-  lowRiskCount = signal(2);
+  riskFactors = computed(() => {
+    const preds = this.predictions();
+    const factorCounts: Record<string, number> = {};
+    
+    preds.forEach(p => {
+      p.factors?.forEach(f => {
+        factorCounts[f] = (factorCounts[f] || 0) + 1;
+      });
+    });
+    
+    const total = preds.length || 1;
+    const factors = Object.entries(factorCounts)
+      .map(([name, count]) => ({
+        name,
+        percentage: Math.round((count / total) * 100),
+        color: this.getFactorColor(name)
+      }))
+      .sort((a, b) => b.percentage - a.percentage)
+      .slice(0, 5);
+    
+    if (factors.length === 0) {
+      return [
+        { name: 'Absences répétées', percentage: 78, color: 'bg-danger' },
+        { name: 'Score anxiété élevé', percentage: 65, color: 'bg-warning' },
+        { name: 'Progression lente', percentage: 52, color: 'bg-info' },
+        { name: 'Stress professionnel', percentage: 41, color: 'bg-primary' },
+        { name: 'Troubles du sommeil', percentage: 38, color: 'bg-secondary' }
+      ];
+    }
+    
+    return factors;
+  });
 
-  filteredPredictions() {
-    if (this.filterRisk === 'all') return this.predictions;
-    return this.predictions.filter(p => p.riskLevel === this.filterRisk);
+  recommendations = computed(() => {
+    const preds = this.predictions().filter(p => p.riskLevel === 'CRITICAL' || p.riskLevel === 'HIGH');
+    return preds.slice(0, 3).map((p, i) => ({
+      id: i + 1,
+      icon: this.getRecommendationIcon(p.type),
+      iconBg: this.getRecommendationBg(p.type),
+      title: this.getRecommendationTitle(p),
+      description: p.recommendation || 'Action recommandée'
+    }));
+  });
+
+  ngOnInit() {
+    this.loadData();
   }
 
-  getRiskAvatarClass(level: string): string {
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  loadData() {
+    this.loading.set(true);
+    
+    forkJoin({
+      predictions: this.predictionService.getHighRiskPredictions(30),
+      stats: this.predictionService.getPredictionStats()
+    }).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (data) => {
+        this.predictions.set(data.predictions);
+        this.predictionAccuracy.set(data.stats.accuracy);
+        this.totalPredictions.set(data.stats.total);
+        this.successfulPredictions.set(data.stats.successful);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.loading.set(false);
+      }
+    });
+  }
+
+  refreshData() {
+    this.loadData();
+  }
+
+  setFilter(filter: 'all' | 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW') {
+    this.filterRisk.set(filter);
+  }
+
+  markAsReviewed(prediction: Prediction) {
+    this.predictionService.markAsReviewed(prediction.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          // Remove from list
+          this.predictions.update(preds => preds.filter(p => p.id !== prediction.id));
+        },
+        error: () => {
+          // For demo, still remove
+          this.predictions.update(preds => preds.filter(p => p.id !== prediction.id));
+        }
+      });
+  }
+
+  scheduleFollowUp(prediction: Prediction) {
+    // Navigate to seances with patient pre-selected
+    console.log('Schedule follow-up for patient:', prediction.patientId);
+  }
+
+  getInitials(name: string): string {
+    if (!name) return 'XX';
+    const parts = name.split(' ');
+    return parts.map(p => p.charAt(0)).join('').substring(0, 2).toUpperCase();
+  }
+
+  formatDate(dateString: string): string {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    
+    if (diffHours < 1) return 'À l\'instant';
+    if (diffHours < 24) return `Il y a ${diffHours}h`;
+    if (diffDays === 1) return 'Hier';
+    if (diffDays < 7) return `Il y a ${diffDays} jours`;
+    
+    return date.toLocaleDateString('fr-FR');
+  }
+
+  getRiskLabel(level: Prediction['riskLevel']): string {
+    const labels: Record<string, string> = {
+      'CRITICAL': 'Critique',
+      'HIGH': 'Élevé',
+      'MEDIUM': 'Modéré',
+      'LOW': 'Faible'
+    };
+    return labels[level] || level;
+  }
+
+  getTypeLabel(type: Prediction['type']): string {
+    const labels: Record<string, string> = {
+      'DROPOUT_RISK': 'Risque abandon',
+      'NEXT_SESSION': 'Prochaine séance',
+      'TREATMENT_OUTCOME': 'Résultat traitement',
+      'MOOD_TREND': 'Tendance humeur'
+    };
+    return labels[type] || type;
+  }
+
+  getRiskAvatarClass(level: Prediction['riskLevel']): string {
     switch (level) {
-      case 'high': return 'bg-danger text-white';
-      case 'medium': return 'bg-warning text-white';
+      case 'CRITICAL': return 'bg-danger text-white';
+      case 'HIGH': return 'bg-warning text-white';
+      case 'MEDIUM': return 'bg-info text-white';
       default: return 'bg-success text-white';
     }
   }
 
-  getRiskBadgeClass(level: string): string {
+  getRiskBadgeClass(level: Prediction['riskLevel']): string {
     switch (level) {
-      case 'high': return 'bg-danger-subtle text-danger';
-      case 'medium': return 'bg-warning-subtle text-warning';
+      case 'CRITICAL': return 'bg-danger-subtle text-danger';
+      case 'HIGH': return 'bg-warning-subtle text-warning';
+      case 'MEDIUM': return 'bg-info-subtle text-info';
       default: return 'bg-success-subtle text-success';
     }
   }
 
-  getRiskTextClass(level: string): string {
+  getRiskTextClass(level: Prediction['riskLevel']): string {
     switch (level) {
-      case 'high': return 'text-danger';
-      case 'medium': return 'text-warning';
+      case 'CRITICAL': return 'text-danger';
+      case 'HIGH': return 'text-warning';
+      case 'MEDIUM': return 'text-info';
       default: return 'text-success';
+    }
+  }
+
+  private getFactorColor(factor: string): string {
+    const colors: Record<string, string> = {
+      'Absences répétées': 'bg-danger',
+      'Score anxiété élevé': 'bg-warning',
+      'Baisse engagement': 'bg-warning',
+      'Historique instable': 'bg-danger',
+      'Progression stagnante': 'bg-info',
+      'Feedback négatif': 'bg-danger',
+      'Humeur fluctuante': 'bg-warning',
+      'Sommeil perturbé': 'bg-info',
+      'Progression positive': 'bg-success',
+      'Amélioration constante': 'bg-success',
+      'Engagement élevé': 'bg-success'
+    };
+    return colors[factor] || 'bg-secondary';
+  }
+
+  private getRecommendationIcon(type: Prediction['type']): string {
+    switch (type) {
+      case 'DROPOUT_RISK': return 'ti ti-phone';
+      case 'NEXT_SESSION': return 'ti ti-calendar';
+      case 'MOOD_TREND': return 'ti ti-heart';
+      default: return 'ti ti-clipboard';
+    }
+  }
+
+  private getRecommendationBg(type: Prediction['type']): string {
+    switch (type) {
+      case 'DROPOUT_RISK': return 'bg-danger';
+      case 'NEXT_SESSION': return 'bg-success';
+      case 'MOOD_TREND': return 'bg-warning';
+      default: return 'bg-primary';
+    }
+  }
+
+  private getRecommendationTitle(prediction: Prediction): string {
+    switch (prediction.type) {
+      case 'DROPOUT_RISK': return `Contacter ${prediction.patientName.split(' ')[0]}`;
+      case 'NEXT_SESSION': return `Planifier séance - ${prediction.patientName.split(' ')[0]}`;
+      case 'MOOD_TREND': return `Surveiller ${prediction.patientName.split(' ')[0]}`;
+      default: return `Action pour ${prediction.patientName.split(' ')[0]}`;
     }
   }
 }

@@ -83,5 +83,18 @@ public interface SeanceRepository extends JpaRepository<Seance, Long> {
     @Query("SELECT AVG(s.progressRating) FROM Seance s WHERE s.patient.id = :patientId " +
            "AND s.progressRating IS NOT NULL")
     Double getAverageProgressRating(@Param("patientId") Long patientId);
+    
+    @Query("SELECT s FROM Seance s WHERE s.therapeute.id = :therapeuteId " +
+           "AND s.scheduledAt BETWEEN :start AND :end")
+    List<Seance> findByTherapeuteIdAndScheduledAtBetween(
+            @Param("therapeuteId") Long therapeuteId,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end);
+    
+    @Query("SELECT s FROM Seance s WHERE s.therapeute.id = :therapeuteId " +
+           "AND s.scheduledAt > :dateTime ORDER BY s.scheduledAt ASC")
+    List<Seance> findByTherapeuteIdAndScheduledAtAfter(
+            @Param("therapeuteId") Long therapeuteId,
+            @Param("dateTime") LocalDateTime dateTime);
 }
 

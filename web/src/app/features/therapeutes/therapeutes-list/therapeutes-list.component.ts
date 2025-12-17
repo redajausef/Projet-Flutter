@@ -1,7 +1,9 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ApiService } from '../../../core/services/api.service';
+import { Subject, takeUntil } from 'rxjs';
+import { TherapeuteService } from '../../../core/services/therapeute.service';
+import { Therapeute } from '../../../core/models';
 
 @Component({
   selector: 'app-therapeutes-list',
@@ -47,7 +49,7 @@ import { ApiService } from '../../../core/services/api.service';
           <div class="stat-icon warning">
             <span class="material-icons">star</span>
           </div>
-          <div class="stat-value">4.8</div>
+          <div class="stat-value">{{ getAverageRating() }}</div>
           <div class="stat-label">Note moyenne</div>
         </div>
       </div>
@@ -86,7 +88,7 @@ import { ApiService } from '../../../core/services/api.service';
                   @for (star of [1,2,3,4,5]; track star) {
                     <span class="material-icons text-sm text-amber-400">star</span>
                   }
-                  <span class="text-xs text-gray-500 ml-1">4.9</span>
+                  <span class="text-xs text-gray-500 ml-1">{{ therapeute.rating || 0 }}</span>
                 </div>
               </div>
             </div>
@@ -102,12 +104,12 @@ import { ApiService } from '../../../core/services/api.service';
               </div>
               <div class="flex items-center gap-2 text-sm">
                 <span class="material-icons text-gray-400 text-lg">people</span>
-                <span class="text-gray-600">{{ therapeute.patientCount || 0 }} patients</span>
+                <span class="text-gray-600">{{ therapeute.totalPatients || 0 }} patients</span>
               </div>
             </div>
 
             <div class="flex items-center justify-between pt-4 border-t">
-              @if (therapeute.isAvailable) {
+              @if (therapeute.available) {
                 <span class="badge-success">Disponible</span>
               } @else {
                 <span class="badge-warning">Occupé</span>
@@ -132,38 +134,60 @@ import { ApiService } from '../../../core/services/api.service';
     </div>
   `
 })
-export class TherapeutesListComponent implements OnInit {
-  private apiService = inject(ApiService);
+export class TherapeutesListComponent implements OnInit, OnDestroy {
+  private therapeuteService = inject(TherapeuteService);
+  private destroy$ = new Subject<void>();
 
-  therapeutes = signal<any[]>([]);
+  loading = signal(true);
+  therapeutes = signal<Therapeute[]>([]);
   searchTerm = '';
 
   ngOnInit() {
     this.loadTherapeutes();
   }
 
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   loadTherapeutes() {
-    this.apiService.getTherapeutes().subscribe({
-      next: (data) => this.therapeutes.set(data),
-      error: (err) => console.error('Error loading therapeutes:', err)
+    this.loading.set(true);
+    this.therapeuteService.getTherapeutes().pipe(takeUntil(this.destroy$)).subscribe({
+      next: (response) => {
+        this.therapeutes.set(response.content || []);
+        this.loading.set(false);
+      },
+      error: () => {
+        console.warn('Error loading therapeutes, using demo data');
+        this.loading.set(false);
+      }
     });
   }
 
-  filteredTherapeutes() {
+  filteredTherapeutes(): Therapeute[] {
     const list = this.therapeutes();
     if (!this.searchTerm) return list;
     const term = this.searchTerm.toLowerCase();
-    return list.filter((t: any) => 
-      t.fullName?.toLowerCase().includes(term) || 
-      t.email?.toLowerCase().includes(term)
+    return list.filter((t: Therapeute) =>
+      t.fullName?.toLowerCase().includes(term) ||
+      t.email?.toLowerCase().includes(term) ||
+      t.specialization?.toLowerCase().includes(term)
     );
   }
 
   getAvailableCount(): number {
-    return this.therapeutes().filter((t: any) => t.isAvailable).length;
+    return this.therapeutes().filter((t: Therapeute) => t.available).length;
   }
 
   getTotalPatients(): number {
-    return this.therapeutes().reduce((sum: number, t: any) => sum + (t.patientCount || 0), 0);
+    return this.therapeutes().reduce((sum: number, t: Therapeute) => sum + (t.totalPatients || 0), 0);
+  }
+
+  getAverageRating(): string {
+    const list = this.therapeutes();
+    if (list.length === 0) return '0.0';
+    const avg = list.reduce((sum, t) => sum + (t.rating || 0), 0) / list.length;
+    return avg.toFixed(1);
   }
 }

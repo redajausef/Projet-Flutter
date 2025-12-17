@@ -1,6 +1,10 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subject, takeUntil } from 'rxjs';
+import { SeanceService } from '../../../core/services/seance.service';
+import { PatientService } from '../../../core/services/patient.service';
+import { Seance, Patient } from '../../../core/models';
 
 @Component({
   selector: 'app-seances-calendar',
@@ -173,44 +177,45 @@ import { FormsModule } from '@angular/forms';
               <form>
                 <div class="mb-3">
                   <label class="form-label">Patient</label>
-                  <select class="form-select">
-                    <option>Sélectionner un patient</option>
-                    <option>Marie Dupont</option>
-                    <option>Jean Martin</option>
-                    <option>Sophie Bernard</option>
+                  <select class="form-select" [(ngModel)]="newSeance.patientId">
+                    <option [ngValue]="null">Sélectionner un patient</option>
+                    @for (patient of patients(); track patient.id) {
+                      <option [ngValue]="patient.id">{{ patient.firstName }} {{ patient.lastName }}</option>
+                    }
                   </select>
                 </div>
                 <div class="row g-3">
                   <div class="col-md-6">
                     <label class="form-label">Date</label>
-                    <input type="date" class="form-control" [value]="selectedDate">
+                    <input type="date" class="form-control" [(ngModel)]="newSeance.date">
                   </div>
                   <div class="col-md-6">
                     <label class="form-label">Heure</label>
-                    <input type="time" class="form-control" value="09:00">
+                    <input type="time" class="form-control" [(ngModel)]="newSeance.time">
                   </div>
                 </div>
                 <div class="mb-3 mt-3">
                   <label class="form-label">Type de séance</label>
-                  <select class="form-select">
-                    <option>Consultation</option>
-                    <option>Thérapie cognitive</option>
-                    <option>Suivi mensuel</option>
-                    <option>Vidéoconférence</option>
+                  <select class="form-select" [(ngModel)]="newSeance.type">
+                    <option value="IN_PERSON">En personne</option>
+                    <option value="VIDEO_CALL">Vidéoconférence</option>
+                    <option value="PHONE_CALL">Appel téléphonique</option>
+                    <option value="HOME_VISIT">Visite à domicile</option>
+                    <option value="GROUP_SESSION">Session de groupe</option>
                   </select>
                 </div>
                 <div class="mb-3">
                   <label class="form-label">Durée</label>
-                  <select class="form-select">
-                    <option>30 minutes</option>
-                    <option selected>45 minutes</option>
-                    <option>60 minutes</option>
-                    <option>90 minutes</option>
+                  <select class="form-select" [(ngModel)]="newSeance.durationMinutes">
+                    <option [ngValue]="30">30 minutes</option>
+                    <option [ngValue]="45">45 minutes</option>
+                    <option [ngValue]="60">60 minutes</option>
+                    <option [ngValue]="90">90 minutes</option>
                   </select>
                 </div>
                 <div class="mb-3">
                   <label class="form-label">Notes</label>
-                  <textarea class="form-control" rows="3" placeholder="Notes optionnelles..."></textarea>
+                  <textarea class="form-control" rows="3" placeholder="Notes optionnelles..." [(ngModel)]="newSeance.notes"></textarea>
                 </div>
               </form>
             </div>
@@ -312,68 +317,174 @@ import { FormsModule } from '@angular/forms';
     .f-48 { font-size: 48px; }
   `]
 })
-export class SeancesCalendarComponent implements OnInit {
+export class SeancesCalendarComponent implements OnInit, OnDestroy {
+  private seanceService = inject(SeanceService);
+  private patientService = inject(PatientService);
+  private destroy$ = new Subject<void>();
+
   weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
   monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
-  
+
   currentMonth = new Date().getMonth();
   currentYear = new Date().getFullYear();
   selectedDate = '';
   todayString = '';
   showAddModal = false;
-  
+  newSeance = {
+    patientId: null as number | null,
+    date: '',
+    time: '09:00',
+    type: 'IN_PERSON',
+    durationMinutes: 45,
+    notes: ''
+  };
+
+  loading = signal(true);
   calendarWeeks = signal<any[][]>([]);
   selectedDayEvents = signal<any[]>([]);
+  patients = signal<Patient[]>([]);
 
-  // Demo events
-  private events = [
-    { id: 1, date: '2025-12-15', time: '09:00', patient: 'Marie Dupont', type: 'Consultation', status: 'Confirmé', color: 'primary' },
-    { id: 2, date: '2025-12-15', time: '10:30', patient: 'Jean Martin', type: 'Thérapie cognitive', status: 'Confirmé', color: 'success' },
-    { id: 3, date: '2025-12-15', time: '14:00', patient: 'Sophie Bernard', type: 'Suivi mensuel', status: 'En attente', color: 'warning' },
-    { id: 4, date: '2025-12-16', time: '09:30', patient: 'Pierre Leroy', type: 'Consultation', status: 'Confirmé', color: 'primary' },
-    { id: 5, date: '2025-12-17', time: '11:00', patient: 'Claire Moreau', type: 'Vidéoconférence', status: 'Confirmé', color: 'info' },
-    { id: 6, date: '2025-12-18', time: '15:00', patient: 'Marie Dupont', type: 'Suivi', status: 'Confirmé', color: 'success' },
-    { id: 7, date: '2025-12-19', time: '10:00', patient: 'Jean Martin', type: 'Thérapie', status: 'En attente', color: 'warning' },
-    { id: 8, date: '2025-12-20', time: '09:00', patient: 'Sophie Bernard', type: 'Consultation', status: 'Confirmé', color: 'primary' },
+  // Events derived from seances
+  private events: any[] = [];
+
+  // Fallback demo events
+  private demoEvents = [
+    { id: 1, date: '2025-12-16', time: '09:00', patient: 'Sara Ouazzani', type: 'Consultation', status: 'Confirmé', color: 'primary' },
+    { id: 2, date: '2025-12-16', time: '10:30', patient: 'Karim Benjelloun', type: 'Thérapie cognitive', status: 'Confirmé', color: 'success' },
+    { id: 3, date: '2025-12-16', time: '14:00', patient: 'Leila Cherkaoui', type: 'Suivi mensuel', status: 'En attente', color: 'warning' },
+    { id: 4, date: '2025-12-17', time: '09:30', patient: 'Mehdi Fassi Fihri', type: 'Consultation', status: 'Confirmé', color: 'primary' },
+    { id: 5, date: '2025-12-18', time: '11:00', patient: 'Nadia Berrada', type: 'Vidéoconférence', status: 'Confirmé', color: 'info' },
+    { id: 6, date: '2025-12-19', time: '15:00', patient: 'Zineb Idrissi', type: 'Suivi', status: 'Confirmé', color: 'success' },
+    { id: 7, date: '2025-12-20', time: '10:00', patient: 'Yassine Kettani', type: 'Thérapie', status: 'En attente', color: 'warning' },
+    { id: 8, date: '2025-12-21', time: '09:00', patient: 'Rachid Bennani', type: 'Consultation', status: 'Confirmé', color: 'primary' },
   ];
 
   ngOnInit() {
     const today = new Date();
     this.todayString = this.formatDate(today);
     this.selectedDate = this.todayString;
-    this.generateCalendar();
-    this.updateSelectedDayEvents();
+    this.loadSeances();
+    this.loadPatients();
+  }
+
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  loadSeances() {
+    this.loading.set(true);
+
+    // Get seances for current month - use ISO DateTime format for backend
+    const startDate = new Date(this.currentYear, this.currentMonth, 1);
+    const endDate = new Date(this.currentYear, this.currentMonth + 1, 0, 23, 59, 59);
+
+    this.seanceService.getSeancesByDateRange(
+      startDate.toISOString(),
+      endDate.toISOString()
+    ).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (seances: Seance[]) => {
+        this.events = seances.map(s => this.mapSeanceToEvent(s));
+        this.generateCalendar();
+        this.updateSelectedDayEvents();
+        this.loading.set(false);
+      },
+      error: () => {
+        console.warn('Using demo data for calendar');
+        this.events = this.demoEvents;
+        this.generateCalendar();
+        this.updateSelectedDayEvents();
+        this.loading.set(false);
+      }
+    });
+  }
+
+  loadPatients() {
+    this.patientService.getPatients().pipe(takeUntil(this.destroy$)).subscribe({
+      next: (response) => {
+        this.patients.set(response.content || []);
+      },
+      error: () => console.warn('Could not load patients')
+    });
+  }
+
+  mapSeanceToEvent(seance: Seance): any {
+    const date = new Date(seance.scheduledAt);
+    return {
+      id: seance.id,
+      date: this.formatDate(date),
+      time: date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+      patient: seance.patientName,
+      type: this.getTypeLabel(seance.type),
+      status: this.getStatusLabel(seance.status),
+      color: this.getStatusColor(seance.status)
+    };
+  }
+
+  getTypeLabel(type: Seance['type']): string {
+    const labels: Record<string, string> = {
+      'CONSULTATION': 'Consultation',
+      'THERAPY': 'Thérapie',
+      'FOLLOW_UP': 'Suivi',
+      'VIDEO': 'Vidéoconférence',
+      'EMERGENCY': 'Urgence'
+    };
+    return labels[type] || type;
+  }
+
+  getStatusLabel(status: Seance['status']): string {
+    const labels: Record<string, string> = {
+      'SCHEDULED': 'Planifié',
+      'CONFIRMED': 'Confirmé',
+      'IN_PROGRESS': 'En cours',
+      'COMPLETED': 'Terminé',
+      'CANCELLED': 'Annulé',
+      'NO_SHOW': 'Absent'
+    };
+    return labels[status] || status;
+  }
+
+  getStatusColor(status: Seance['status']): string {
+    const colors: Record<string, string> = {
+      'SCHEDULED': 'warning',
+      'CONFIRMED': 'primary',
+      'IN_PROGRESS': 'info',
+      'COMPLETED': 'success',
+      'CANCELLED': 'danger',
+      'NO_SHOW': 'secondary'
+    };
+    return colors[status] || 'secondary';
   }
 
   generateCalendar() {
     const firstDay = new Date(this.currentYear, this.currentMonth, 1);
     const lastDay = new Date(this.currentYear, this.currentMonth + 1, 0);
-    
+
     // Adjust for Monday start (0 = Monday, 6 = Sunday)
     let startDay = firstDay.getDay() - 1;
     if (startDay < 0) startDay = 6;
-    
+
     const weeks: any[][] = [];
     let currentWeek: any[] = [];
-    
+
     // Previous month days
     const prevMonthLastDay = new Date(this.currentYear, this.currentMonth, 0).getDate();
     for (let i = startDay - 1; i >= 0; i--) {
       const date = new Date(this.currentYear, this.currentMonth - 1, prevMonthLastDay - i);
       currentWeek.push(this.createDayObject(date, false));
     }
-    
+
     // Current month days
     for (let day = 1; day <= lastDay.getDate(); day++) {
       const date = new Date(this.currentYear, this.currentMonth, day);
       currentWeek.push(this.createDayObject(date, true));
-      
+
       if (currentWeek.length === 7) {
         weeks.push(currentWeek);
         currentWeek = [];
       }
     }
-    
+
     // Next month days
     if (currentWeek.length > 0) {
       let nextMonthDay = 1;
@@ -383,14 +494,14 @@ export class SeancesCalendarComponent implements OnInit {
       }
       weeks.push(currentWeek);
     }
-    
+
     this.calendarWeeks.set(weeks);
   }
 
   createDayObject(date: Date, isCurrentMonth: boolean) {
     const dateStr = this.formatDate(date);
     const dayEvents = this.events.filter(e => e.date === dateStr);
-    
+
     return {
       date: dateStr,
       day: date.getDate(),
@@ -423,7 +534,7 @@ export class SeancesCalendarComponent implements OnInit {
       this.currentMonth = 11;
       this.currentYear--;
     }
-    this.generateCalendar();
+    this.loadSeances();
   }
 
   nextMonth() {
@@ -432,7 +543,7 @@ export class SeancesCalendarComponent implements OnInit {
       this.currentMonth = 0;
       this.currentYear++;
     }
-    this.generateCalendar();
+    this.loadSeances();
   }
 
   goToToday() {
@@ -440,8 +551,7 @@ export class SeancesCalendarComponent implements OnInit {
     this.currentMonth = today.getMonth();
     this.currentYear = today.getFullYear();
     this.selectedDate = this.todayString;
-    this.generateCalendar();
-    this.updateSelectedDayEvents();
+    this.loadSeances();
   }
 
   formatSelectedDate(): string {
@@ -459,6 +569,48 @@ export class SeancesCalendarComponent implements OnInit {
   }
 
   saveSession() {
-    this.showAddModal = false;
+    if (!this.newSeance.patientId || !this.newSeance.date) {
+      console.warn('Patient et date requis');
+      return;
+    }
+
+    // Get therapeute ID
+    const therapeuteId = 1; // Current logged-in therapeute
+
+    // Build scheduled datetime
+    const scheduledAt = `${this.newSeance.date}T${this.newSeance.time}:00`;
+
+    const request = {
+      patientId: this.newSeance.patientId,
+      therapeuteId: therapeuteId,
+      type: this.newSeance.type as any,
+      scheduledAt: scheduledAt,
+      durationMinutes: this.newSeance.durationMinutes,
+      notes: this.newSeance.notes || undefined
+    };
+
+    console.log('Creating seance:', request);
+
+    this.seanceService.createSeance(request).subscribe({
+      next: (seance) => {
+        console.log('Seance created:', seance);
+        this.showAddModal = false;
+        // Reset form
+        this.newSeance = {
+          patientId: null,
+          date: '',
+          time: '09:00',
+          type: 'IN_PERSON',
+          durationMinutes: 45,
+          notes: ''
+        };
+        // Reload seances
+        this.loadSeances();
+      },
+      error: (err) => {
+        console.error('Error creating seance:', err);
+        alert('Erreur lors de la création de la séance');
+      }
+    });
   }
 }

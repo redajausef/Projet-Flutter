@@ -1,7 +1,8 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
+import { TherapeuteService } from '../../core/services/therapeute.service';
 
 @Component({
   selector: 'app-main-layout',
@@ -38,13 +39,6 @@ import { AuthService } from '../../core/services/auth.service';
           <i class="ti ti-calendar"></i>
           <span>Séances</span>
         </a>
-        
-        @if (authService.isAdmin()) {
-          <a routerLink="/therapeutes" routerLinkActive="active" class="nav-item">
-            <i class="ti ti-stethoscope"></i>
-            <span>Thérapeutes</span>
-          </a>
-        }
         
         <a routerLink="/predictions" routerLinkActive="active" class="nav-item">
           <i class="ti ti-chart-dots"></i>
@@ -401,9 +395,36 @@ import { AuthService } from '../../core/services/auth.service';
     }
   `]
 })
-export class MainLayoutComponent {
+export class MainLayoutComponent implements OnInit {
   authService = inject(AuthService);
+  therapeuteService = inject(TherapeuteService);
   collapsed = signal(false);
+
+  ngOnInit(): void {
+    // If user is a therapeute, load their profile
+    if (this.authService.isTherapeute()) {
+      this.loadCurrentTherapeute();
+    }
+  }
+
+  private loadCurrentTherapeute(): void {
+    // First try to load from localStorage
+    this.therapeuteService.loadCurrentTherapeute();
+
+    // Then fetch from API to ensure fresh data
+    const userId = this.authService.getUserId();
+    if (userId) {
+      this.therapeuteService.getTherapeuteByUserId(userId).subscribe({
+        next: (therapeute) => {
+          this.authService.setTherapeuteId(therapeute.id);
+          console.log('Therapeute loaded:', therapeute.fullName, 'ID:', therapeute.id);
+        },
+        error: (err) => {
+          console.error('Error loading therapeute:', err);
+        }
+      });
+    }
+  }
 
   getInitials(): string {
     const u = this.authService.currentUser();
@@ -420,5 +441,6 @@ export class MainLayoutComponent {
 
   logout() {
     this.authService.logout();
+    this.therapeuteService.clearCurrentTherapeute();
   }
 }

@@ -53,6 +53,24 @@ public class SeanceService {
                 .collect(Collectors.toList());
     }
 
+    public List<SeanceDTO> getTodaySeancesByTherapeute(Long therapeuteId) {
+        LocalDateTime startOfDay = LocalDateTime.now().toLocalDate().atStartOfDay();
+        LocalDateTime endOfDay = startOfDay.plusDays(1);
+        return seanceRepository.findByTherapeuteAndDateRange(therapeuteId, startOfDay, endOfDay)
+                .stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    public List<SeanceDTO> getTodaySeances() {
+        LocalDateTime startOfDay = LocalDateTime.now().toLocalDate().atStartOfDay();
+        LocalDateTime endOfDay = startOfDay.plusDays(1);
+        return seanceRepository.findByScheduledAtBetween(startOfDay, endOfDay)
+                .stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
     public List<SeanceDTO> getUpcomingSeances() {
         return seanceRepository.findUpcomingSeances(LocalDateTime.now())
                 .stream()

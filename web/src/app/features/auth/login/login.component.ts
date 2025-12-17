@@ -78,17 +78,10 @@ import { AuthService } from '../../../core/services/auth.service';
                 <span>Accès Démo</span>
               </div>
 
-              <div class="row g-2">
-                <div class="col-6">
-                  <button type="button" class="btn btn-outline-primary w-100" (click)="setDemo('admin')">
-                    <i class="ti ti-shield me-2"></i>Admin
-                  </button>
-                </div>
-                <div class="col-6">
-                  <button type="button" class="btn btn-outline-success w-100" (click)="setDemo('therapeute')">
-                    <i class="ti ti-stethoscope me-2"></i>Thérapeute
-                  </button>
-                </div>
+              <div class="d-grid">
+                <button type="button" class="btn btn-outline-success" (click)="setDemo('therapeute')">
+                  <i class="ti ti-stethoscope me-2"></i>Accès Démo Thérapeute
+                </button>
               </div>
             </div>
           </div>
@@ -206,16 +199,14 @@ export class LoginComponent {
   loading = signal(false);
   error = signal<string | null>(null);
 
-  adminEmail = 'admin@clinassist.com';
+  // Demo credentials for therapist login
+  demoCredentials = {
+    therapeute: { username: 'dr.martin', password: 'password123' }
+  };
 
   setDemo(type: string) {
-    if (type === 'admin') {
-      this.username = this.adminEmail;
-      this.password = 'password123';
-    } else {
-      this.username = 'dr.martin';
-      this.password = 'password123';
-    }
+    this.username = this.demoCredentials.therapeute.username;
+    this.password = this.demoCredentials.therapeute.password;
     this.error.set(null);
   }
 

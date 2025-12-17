@@ -53,6 +53,18 @@ public class SeanceController {
         return ResponseEntity.ok(seanceService.getSeancesByTherapeute(therapeuteId));
     }
 
+    @GetMapping("/therapeute/{therapeuteId}/today")
+    @Operation(summary = "Get today's seances by therapeute")
+    public ResponseEntity<List<SeanceDTO>> getTodaySeancesByTherapeute(@PathVariable Long therapeuteId) {
+        return ResponseEntity.ok(seanceService.getTodaySeancesByTherapeute(therapeuteId));
+    }
+
+    @GetMapping("/today")
+    @Operation(summary = "Get today's seances")
+    public ResponseEntity<List<SeanceDTO>> getTodaySeances() {
+        return ResponseEntity.ok(seanceService.getTodaySeances());
+    }
+
     @GetMapping("/upcoming")
     @Operation(summary = "Get upcoming seances")
     public ResponseEntity<List<SeanceDTO>> getUpcomingSeances() {
