@@ -114,10 +114,14 @@ export interface Seance {
   seanceCode: string;
   patientId: number;
   patientName: string;
+  patientCode?: string;
+  patientImageUrl?: string;
   therapeuteId: number;
   therapeuteName: string;
-  type: 'CONSULTATION' | 'THERAPY' | 'FOLLOW_UP' | 'VIDEO' | 'EMERGENCY';
-  status: 'SCHEDULED' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW';
+  therapeuteCode?: string;
+  therapeuteImageUrl?: string;
+  type: 'IN_PERSON' | 'VIDEO_CALL' | 'PHONE_CALL' | 'HOME_VISIT' | 'GROUP_SESSION' | 'CONSULTATION' | 'THERAPY' | 'FOLLOW_UP' | 'VIDEO' | 'EMERGENCY';
+  status: 'PENDING_APPROVAL' | 'SCHEDULED' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW' | 'RESCHEDULED';
   scheduledAt: string;
   startedAt?: string;
   endedAt?: string;
