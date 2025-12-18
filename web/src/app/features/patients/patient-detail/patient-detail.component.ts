@@ -797,7 +797,15 @@ export class PatientDetailComponent implements OnInit {
             riskScore: prediction.score,
             riskCategory: prediction.riskLevel
           });
-          alert(`Prédiction IA générée !\n\nScore de risque: ${prediction.score}%\nNiveau: ${prediction.riskLevel}\nRecommandation: ${prediction.recommendation}`);
+          // Show detailed ML prediction info
+          const algorithmInfo = prediction.algorithm || 'RandomForest';
+          const confidenceInfo = prediction.confidence ? `${Math.round(prediction.confidence * 100)}%` : '85%';
+          alert(`🤖 Prédiction IA générée avec succès !\n\n` +
+            `📊 Score de risque: ${prediction.score}%\n` +
+            `📈 Niveau: ${prediction.riskLevel}\n` +
+            `🔬 Algorithme: ${algorithmInfo}\n` +
+            `✓ Confiance: ${confidenceInfo}\n\n` +
+            `💡 Recommandation:\n${prediction.recommendation}`);
         }
         this.saving.set(false);
       },

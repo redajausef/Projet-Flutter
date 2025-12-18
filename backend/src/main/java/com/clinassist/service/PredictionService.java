@@ -29,7 +29,7 @@ public class PredictionService {
     private final PredictionRepository predictionRepository;
     private final PatientRepository patientRepository;
     private final SeanceRepository seanceRepository;
-    // ML integration handled via standalone Flask microservice on port 5001
+    private final MLPredictionClient mlClient;
 
     public List<PredictionDTO> getPatientPredictions(Long patientId) {
         return predictionRepository.findByPatientId(patientId)
@@ -114,9 +114,17 @@ public class PredictionService {
                 ChronoUnit.DAYS.between(completed.get(0).getScheduledAt(), LocalDateTime.now());
         factors.put("days_since_last_session", (double) daysSinceLastSession);
         
-        // Calculate risk score using heuristic (0-100)
-        // ML service available on port 5001 for advanced predictions
-        double riskScore = calculateDropoutRisk(factors);
+        // Calculate risk score using ML service (Random Forest model)
+        MLPredictionClient.MLPredictionResult mlResult = mlClient.predictDropoutRisk(
+                factors.get("cancellation_rate"),
+                factors.get("no_show_rate"),
+                (int) daysSinceLastSession,
+                seances.size(),
+                5.0, // Default mood score (would come from session data if tracked)
+                30   // Default age (would calculate from dateOfBirth if needed)
+        );
+        
+        double riskScore = mlResult.getScore();
         int riskLevel = (int) riskScore;
         
         Prediction.RiskCategory riskCategory;
@@ -124,18 +132,23 @@ public class PredictionService {
         else if (riskScore < 50) riskCategory = Prediction.RiskCategory.MODERATE;
         else if (riskScore < 75) riskCategory = Prediction.RiskCategory.HIGH;
         else riskCategory = Prediction.RiskCategory.CRITICAL;
+        
+        // Use ML factors if available
+        if (mlResult.getFactors() != null) {
+            factors.putAll(mlResult.getFactors());
+        }
 
         Prediction prediction = Prediction.builder()
                 .patient(patient)
                 .type(Prediction.PredictionType.DROPOUT_RISK)
-                .prediction("Patient dropout risk assessment")
-                .confidenceScore(0.85)
+                .prediction("Patient dropout risk assessment via ML")
+                .confidenceScore(mlResult.getConfidence())
                 .factors(factors)
                 .riskLevel(riskLevel)
                 .riskCategory(riskCategory)
                 .recommendations(generateDropoutRecommendations(riskCategory))
-                .modelVersion("1.0.0")
-                .algorithmUsed("HeuristicAnalyzer")
+                .modelVersion(mlResult.getModelVersion() != null ? mlResult.getModelVersion() : "1.0.0")
+                .algorithmUsed(mlResult.getAlgorithm() != null ? mlResult.getAlgorithm() : "RandomForest")
                 .build();
 
         prediction = predictionRepository.save(prediction);

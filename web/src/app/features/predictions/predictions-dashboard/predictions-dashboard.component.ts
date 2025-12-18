@@ -419,17 +419,27 @@ export class PredictionsDashboardComponent implements OnInit, OnDestroy {
       'days_since_last_session': 'Jours depuis dernière séance',
       'no_show_rate': 'Taux d\'absence',
       'cancellation_rate': 'Taux d\'annulation',
-      'cancellation_impact': 'Impact des annulations',
-      'no_show_impact': 'Impact des absences',
-      'inactivity_impact': 'Impact de l\'inactivité',
+      'cancellation_impact': 'Impact annulations',
+      'no_show_impact': 'Impact absences',
+      'inactivity_impact': 'Impact inactivité',
       'total_sessions': 'Nombre de séances',
       'avg_progress_rating': 'Note de progression',
-      'mood_improvement': 'Amélioration de l\'humeur'
+      'mood_improvement': 'Amélioration humeur'
     };
 
-    return Object.keys(factors).map(key =>
-      translations[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-    );
+    // Return labels WITH values
+    return Object.keys(factors).map(key => {
+      const label = translations[key] || key.replace(/_/g, ' ');
+      const value = factors[key];
+      // Format value based on type (percentage or number)
+      if (key.includes('rate') || key.includes('impact')) {
+        return `${label}: ${Math.round(value)}%`;
+      } else if (key === 'days_since_last_session') {
+        return `${label}: ${Math.round(value)}j`;
+      } else {
+        return `${label}: ${Math.round(value * 10) / 10}`;
+      }
+    });
   }
 
   getInitials(name: string): string {

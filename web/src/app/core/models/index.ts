@@ -162,6 +162,8 @@ export interface Prediction {
   generatedAt: string;
   validUntil?: string;
   isActive: boolean;
+  algorithm?: string;  // ML algorithm used (RandomForest, GradientBoosting, etc.)
+  modelVersion?: string;
 }
 
 // Dashboard
