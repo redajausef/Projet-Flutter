@@ -10,11 +10,11 @@ import { Prediction, PageResponse } from '../models';
 export class PredictionService {
   private readonly apiUrl = `${environment.apiUrl}/predictions`;
   private http = inject(HttpClient);
-  
+
   // State management
   private predictionsSubject = new BehaviorSubject<Prediction[]>([]);
   private loadingSubject = new BehaviorSubject<boolean>(false);
-  
+
   predictions$ = this.predictionsSubject.asObservable();
   loading$ = this.loadingSubject.asObservable();
 
@@ -30,13 +30,14 @@ export class PredictionService {
   /**
    * Get high risk predictions
    */
-  getHighRiskPredictions(minRisk = 70): Observable<Prediction[]> {
+  getHighRiskPredictions(minRisk = 30): Observable<Prediction[]> {
     this.loadingSubject.next(true);
-    
-    return this.http.get<Prediction[]>(`${this.apiUrl}/high-risk`, {
+
+    return this.http.get<any[]>(`${this.apiUrl}/high-risk`, {
       params: new HttpParams().set('minRisk', minRisk.toString())
     }).pipe(
-      tap(predictions => {
+      tap(apiPredictions => {
+        const predictions = apiPredictions.map(p => this.mapApiToPrediction(p));
         this.predictionsSubject.next(predictions);
         this.loadingSubject.next(false);
       }),
@@ -47,6 +48,35 @@ export class PredictionService {
         return of(demo);
       })
     );
+  }
+
+  /**
+   * Transform API PredictionDTO to frontend Prediction model
+   */
+  private mapApiToPrediction(api: any): Prediction {
+    return {
+      id: api.id,
+      patientId: api.patientId,
+      patientName: api.patientName,
+      type: api.type || 'DROPOUT_RISK',
+      score: api.riskLevel || 0,  // Backend riskLevel (number) -> Frontend score
+      confidence: api.confidenceScore || 0, // Backend confidenceScore -> Frontend confidence
+      riskLevel: api.riskCategory || this.getRiskLevelFromScore(api.riskLevel), // Backend riskCategory -> Frontend riskLevel
+      recommendation: api.recommendations || api.prediction,
+      factors: api.factors, // Can be array or object, handled by component
+      generatedAt: api.createdAt,
+      isActive: true
+    };
+  }
+
+  /**
+   * Convert numeric risk score to risk level string
+   */
+  private getRiskLevelFromScore(score: number): 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' {
+    if (score >= 75) return 'CRITICAL';
+    if (score >= 50) return 'HIGH';
+    if (score >= 25) return 'MEDIUM';
+    return 'LOW';
   }
 
   /**
@@ -75,8 +105,8 @@ export class PredictionService {
   /**
    * Get prediction accuracy stats
    */
-  getPredictionStats(): Observable<{accuracy: number, total: number, successful: number}> {
-    return this.http.get<{accuracy: number, total: number, successful: number}>(`${this.apiUrl}/stats`).pipe(
+  getPredictionStats(): Observable<{ accuracy: number, total: number, successful: number }> {
+    return this.http.get<{ accuracy: number, total: number, successful: number }>(`${this.apiUrl}/stats`).pipe(
       catchError(() => of({ accuracy: 87.5, total: 892, successful: 781 }))
     );
   }

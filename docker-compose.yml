@@ -40,6 +40,7 @@ services:
       SPRING_DATASOURCE_USERNAME: clinassist
       SPRING_DATASOURCE_PASSWORD: clinassist_secret_2024
       JWT_SECRET: Y2xpbmFzc2lzdF9qd3Rfc2VjcmV0X2tleV8yMDI0X3ZlcnlfbG9uZ19hbmRfc2VjdXJlX2Jhc2U2NA==
+      ML_SERVICE_URL: http://ml-service:5000
     ports:
       - "8080:8080"
     depends_on:
@@ -90,6 +91,26 @@ services:
     restart: unless-stopped
     volumes:
       - pgadmin_data:/var/lib/pgadmin
+
+  # ==========================================
+  # ML Prediction Service (Flask + scikit-learn)
+  # ==========================================
+  ml-service:
+    build:
+      context: ./ml-service
+      dockerfile: Dockerfile
+    container_name: clinassist-ml
+    ports:
+      - "5001:5000"
+    networks:
+      - clinassist-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/api/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
 volumes:
   postgres_data:

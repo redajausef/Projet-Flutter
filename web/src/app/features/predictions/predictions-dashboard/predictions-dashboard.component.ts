@@ -140,9 +140,9 @@ import { Prediction, Patient } from '../../../core/models';
                           </div>
                         </div>
                         <p class="mb-2 text-muted">{{ prediction.recommendation }}</p>
-                        @if (prediction.factors && prediction.factors.length > 0) {
+                        @if (getFactorsList(prediction.factors).length > 0) {
                           <div class="d-flex flex-wrap gap-2">
-                            @for (factor of prediction.factors; track factor) {
+                            @for (factor of getFactorsList(prediction.factors); track factor) {
                               <span class="badge bg-light text-dark border">{{ factor }}</span>
                             }
                           </div>
@@ -272,22 +272,22 @@ export class PredictionsDashboardComponent implements OnInit, OnDestroy {
   loading = signal(true);
   predictions = signal<Prediction[]>([]);
   filterRisk = signal<'all' | 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'>('all');
-  
+
   // Stats
   predictionAccuracy = signal(87.5);
   totalPredictions = signal(892);
   successfulPredictions = signal(781);
 
   // Computed
-  highRiskCount = computed(() => 
+  highRiskCount = computed(() =>
     this.predictions().filter(p => p.riskLevel === 'CRITICAL').length
   );
-  
-  mediumRiskCount = computed(() => 
+
+  mediumRiskCount = computed(() =>
     this.predictions().filter(p => p.riskLevel === 'HIGH' || p.riskLevel === 'MEDIUM').length
   );
-  
-  lowRiskCount = computed(() => 
+
+  lowRiskCount = computed(() =>
     this.predictions().filter(p => p.riskLevel === 'LOW').length
   );
 
@@ -300,13 +300,22 @@ export class PredictionsDashboardComponent implements OnInit, OnDestroy {
   riskFactors = computed(() => {
     const preds = this.predictions();
     const factorCounts: Record<string, number> = {};
-    
+
     preds.forEach(p => {
-      p.factors?.forEach(f => {
-        factorCounts[f] = (factorCounts[f] || 0) + 1;
-      });
+      // Handle both array (demo) and object (API) formats
+      if (Array.isArray(p.factors)) {
+        p.factors.forEach(f => {
+          factorCounts[f] = (factorCounts[f] || 0) + 1;
+        });
+      } else if (p.factors && typeof p.factors === 'object') {
+        // API returns factors as object { key: value }
+        Object.keys(p.factors).forEach(key => {
+          const displayName = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+          factorCounts[displayName] = (factorCounts[displayName] || 0) + 1;
+        });
+      }
     });
-    
+
     const total = preds.length || 1;
     const factors = Object.entries(factorCounts)
       .map(([name, count]) => ({
@@ -316,7 +325,7 @@ export class PredictionsDashboardComponent implements OnInit, OnDestroy {
       }))
       .sort((a, b) => b.percentage - a.percentage)
       .slice(0, 5);
-    
+
     if (factors.length === 0) {
       return [
         { name: 'Absences répétées', percentage: 78, color: 'bg-danger' },
@@ -326,7 +335,7 @@ export class PredictionsDashboardComponent implements OnInit, OnDestroy {
         { name: 'Troubles du sommeil', percentage: 38, color: 'bg-secondary' }
       ];
     }
-    
+
     return factors;
   });
 
@@ -352,7 +361,7 @@ export class PredictionsDashboardComponent implements OnInit, OnDestroy {
 
   loadData() {
     this.loading.set(true);
-    
+
     forkJoin({
       predictions: this.predictionService.getHighRiskPredictions(30),
       stats: this.predictionService.getPredictionStats()
@@ -398,6 +407,15 @@ export class PredictionsDashboardComponent implements OnInit, OnDestroy {
     console.log('Schedule follow-up for patient:', prediction.patientId);
   }
 
+  getFactorsList(factors: string[] | Record<string, number> | undefined): string[] {
+    if (!factors) return [];
+    if (Array.isArray(factors)) return factors;
+    // Convert object keys to display names
+    return Object.keys(factors).map(key =>
+      key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+    );
+  }
+
   getInitials(name: string): string {
     if (!name) return 'XX';
     const parts = name.split(' ');
@@ -411,12 +429,12 @@ export class PredictionsDashboardComponent implements OnInit, OnDestroy {
     const diffMs = now.getTime() - date.getTime();
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    
+
     if (diffHours < 1) return 'À l\'instant';
     if (diffHours < 24) return `Il y a ${diffHours}h`;
     if (diffDays === 1) return 'Hier';
     if (diffDays < 7) return `Il y a ${diffDays} jours`;
-    
+
     return date.toLocaleDateString('fr-FR');
   }
 

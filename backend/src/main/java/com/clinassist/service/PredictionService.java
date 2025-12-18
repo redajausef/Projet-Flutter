@@ -9,6 +9,7 @@ import com.clinassist.repository.PatientRepository;
 import com.clinassist.repository.PredictionRepository;
 import com.clinassist.repository.SeanceRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,11 +23,13 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PredictionService {
 
     private final PredictionRepository predictionRepository;
     private final PatientRepository patientRepository;
     private final SeanceRepository seanceRepository;
+    // ML integration handled via standalone Flask microservice on port 5001
 
     public List<PredictionDTO> getPatientPredictions(Long patientId) {
         return predictionRepository.findByPatientId(patientId)
@@ -102,7 +105,8 @@ public class PredictionService {
                 ChronoUnit.DAYS.between(completed.get(0).getScheduledAt(), LocalDateTime.now());
         factors.put("days_since_last_session", (double) daysSinceLastSession);
         
-        // Calculate risk score (0-100)
+        // Calculate risk score using heuristic (0-100)
+        // ML service available on port 5001 for advanced predictions
         double riskScore = calculateDropoutRisk(factors);
         int riskLevel = (int) riskScore;
         
@@ -122,7 +126,7 @@ public class PredictionService {
                 .riskCategory(riskCategory)
                 .recommendations(generateDropoutRecommendations(riskCategory))
                 .modelVersion("1.0.0")
-                .algorithmUsed("DropoutRiskAnalyzer")
+                .algorithmUsed("HeuristicAnalyzer")
                 .build();
 
         prediction = predictionRepository.save(prediction);
