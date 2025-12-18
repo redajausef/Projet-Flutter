@@ -83,6 +83,7 @@ public class PatientController {
 
     @PutMapping("/{id}")
     @Operation(summary = "Update patient")
+    @PreAuthorize("hasAnyRole('ADMIN', 'THERAPEUTE', 'RECEPTIONIST')")
     public ResponseEntity<PatientDTO> updatePatient(
             @PathVariable Long id,
             @RequestBody PatientDTO patientDTO) {

@@ -160,10 +160,10 @@ export class PendingApprovalsComponent implements OnInit {
 
   loadPendingSeances() {
     this.loading = true;
-    // Get all seances and filter by PENDING_APPROVAL status
-    this.seanceService.getSeances(0, 100).subscribe({
-      next: (response) => {
-        this.pendingSeances = response.content.filter(s => s.status === 'PENDING_APPROVAL');
+    // Use the dedicated method to get pending approval seances
+    this.seanceService.getPendingApprovalSeances().subscribe({
+      next: (seances) => {
+        this.pendingSeances = seances;
         this.loading = false;
       },
       error: (error) => {

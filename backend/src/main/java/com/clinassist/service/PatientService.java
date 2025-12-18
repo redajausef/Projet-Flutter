@@ -143,7 +143,29 @@ public class PatientService {
         Patient patient = patientRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Patient not found with id: " + id));
 
-        // Update fields
+        // Update User fields
+        User user = patient.getUser();
+        if (user != null) {
+            if (patientDTO.getFirstName() != null) {
+                user.setFirstName(patientDTO.getFirstName());
+            }
+            if (patientDTO.getLastName() != null) {
+                user.setLastName(patientDTO.getLastName());
+            }
+            if (patientDTO.getEmail() != null) {
+                // Check if email is being changed and if new email already exists
+                if (!user.getEmail().equals(patientDTO.getEmail()) && 
+                    userRepository.existsByEmail(patientDTO.getEmail())) {
+                    throw new IllegalArgumentException("Email already exists");
+                }
+                user.setEmail(patientDTO.getEmail());
+            }
+            if (patientDTO.getPhoneNumber() != null) {
+                user.setPhoneNumber(patientDTO.getPhoneNumber());
+            }
+        }
+
+        // Update Patient fields
         if (patientDTO.getDateOfBirth() != null) {
             patient.setDateOfBirth(patientDTO.getDateOfBirth());
         }

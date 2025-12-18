@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:dio/dio.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
@@ -33,10 +34,22 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
   void _loadAppointments() async {
     final authState = context.read<AuthBloc>().state;
     if (authState is Authenticated) {
-      // Get patient ID from user ID stored in SharedPreferences
-      final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getInt('user_id') ?? 1;
-      context.read<SeanceBloc>().add(LoadPatientSeances(userId, authState.token));
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final userId = prefs.getInt('user_id') ?? 1;
+        
+        final dio = Dio(BaseOptions(
+          baseUrl: 'http://localhost:8080/api',
+          headers: {'Authorization': 'Bearer ${authState.token}'},
+        ));
+        
+        final patientResponse = await dio.get('/patients/user/$userId');
+        final patientId = patientResponse.data['id'] as int;
+        
+        context.read<SeanceBloc>().add(LoadPatientSeances(patientId, authState.token));
+      } catch (e) {
+        print('Error loading appointments: $e');
+      }
     }
   }
 

@@ -133,6 +133,32 @@ export class SeanceService {
   }
 
   /**
+   * Get pending approval seances
+   */
+  getPendingApprovalSeances(): Observable<Seance[]> {
+    const therapeuteId = this.therapeuteService.getCurrentTherapeuteId();
+    
+    if (therapeuteId) {
+      return this.http.get<Seance[]>(`${this.apiUrl}/therapeute/${therapeuteId}`).pipe(
+        map(seances => seances.filter(s => s.status === 'PENDING_APPROVAL')),
+        catchError(error => {
+          console.error('Error fetching pending approval seances:', error);
+          throw error;
+        })
+      );
+    }
+    
+    // Fallback: get all seances and filter
+    return this.http.get<Seance[]>(`${this.apiUrl}`).pipe(
+      map(seances => seances.filter(s => s.status === 'PENDING_APPROVAL')),
+      catchError(error => {
+        console.error('Error fetching pending approval seances:', error);
+        throw error;
+      })
+    );
+  }
+
+  /**
    * Get today's seances - filtered by therapeute if applicable
    */
   getTodaySeances(): Observable<Seance[]> {

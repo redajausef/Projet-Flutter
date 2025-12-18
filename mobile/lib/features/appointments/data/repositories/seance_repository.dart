@@ -46,9 +46,12 @@ class SeanceRepository {
       final List<dynamic> data = response.data as List;
       final seances = data.map((json) => SeanceModel.fromJson(json as Map<String, dynamic>)).toList();
       
-      // Filter upcoming seances
+      // Filter upcoming seances (include SCHEDULED, CONFIRMED, PENDING_APPROVAL)
       final now = DateTime.now();
-      return seances.where((s) => s.scheduledAt.isAfter(now) && s.status == 'SCHEDULED').toList()
+      return seances.where((s) => 
+        s.scheduledAt.isAfter(now) && 
+        (s.status == 'SCHEDULED' || s.status == 'CONFIRMED' || s.status == 'PENDING_APPROVAL')
+      ).toList()
         ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
     } on DioException catch (e) {
       if (e.response != null) {

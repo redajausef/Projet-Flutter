@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:dio/dio.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
@@ -33,11 +34,26 @@ class _HomePageState extends State<HomePage> {
   void _loadData() async {
     final authState = context.read<AuthBloc>().state;
     if (authState is Authenticated) {
-      // Get patient ID from user ID stored in SharedPreferences
-      final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getInt('user_id') ?? 1;
-      context.read<HomeBloc>().add(LoadPatientStats(userId, authState.token));
-      context.read<SeanceBloc>().add(LoadUpcomingSeances(userId, authState.token));
+      try {
+        // Get user ID from SharedPreferences
+        final prefs = await SharedPreferences.getInstance();
+        final userId = prefs.getInt('user_id') ?? 1;
+        
+        // Fetch the patient_id using the user_id
+        final dio = Dio(BaseOptions(
+          baseUrl: 'http://localhost:8080/api',
+          headers: {'Authorization': 'Bearer ${authState.token}'},
+        ));
+        
+        final patientResponse = await dio.get('/patients/user/$userId');
+        final patientId = patientResponse.data['id'] as int;
+        
+        // Now load data with the correct patient_id
+        context.read<HomeBloc>().add(LoadPatientStats(patientId, authState.token));
+        context.read<SeanceBloc>().add(LoadUpcomingSeances(patientId, authState.token));
+      } catch (e) {
+        print('Error loading data: $e');
+      }
     }
   }
 
