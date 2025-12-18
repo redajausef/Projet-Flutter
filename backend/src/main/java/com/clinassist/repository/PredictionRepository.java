@@ -36,6 +36,7 @@ public interface PredictionRepository extends JpaRepository<Prediction, Long> {
             @Param("type") Prediction.PredictionType type);
     
     @Query("SELECT p FROM Prediction p WHERE p.riskLevel >= :minRisk " +
+           "AND (p.isActive = true OR p.isActive IS NULL) " +
            "ORDER BY p.riskLevel DESC, p.createdAt DESC")
     List<Prediction> findHighRiskPredictions(@Param("minRisk") Integer minRisk);
     

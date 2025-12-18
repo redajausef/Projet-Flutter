@@ -71,5 +71,11 @@ public class PredictionController {
         stats.put("successful", 21);
         return ResponseEntity.ok(stats);
     }
+
+    @PatchMapping("/{id}/reviewed")
+    @Operation(summary = "Mark prediction as reviewed/resolved")
+    public ResponseEntity<PredictionDTO> markAsReviewed(@PathVariable Long id) {
+        return ResponseEntity.ok(predictionService.markAsReviewed(id));
+    }
 }
 

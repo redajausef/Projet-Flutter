@@ -505,47 +505,47 @@ export class DashboardComponent implements OnInit, OnDestroy {
   analyticsCards = computed(() => {
     const s = this.stats();
     if (!s) return this.getDefaultCards();
-    
+
     return [
-      { 
-        title: 'Total Patients', 
-        value: s.totalPatients.toString(), 
-        change: `+${s.patientGrowthPercentage?.toFixed(0) || 12}%`, 
-        icon: 'ti ti-trending-up', 
-        badgeClass: 'bg-success-subtle text-success', 
-        extra: s.newPatientsThisMonth?.toString() || '32', 
-        extraText: 'nouveaux ce mois', 
-        textClass: 'text-success' 
+      {
+        title: 'Total Patients',
+        value: s.totalPatients.toString(),
+        change: `+${s.patientGrowthPercentage?.toFixed(0) || 12}%`,
+        icon: 'ti ti-trending-up',
+        badgeClass: 'bg-success-subtle text-success',
+        extra: s.newPatientsThisMonth?.toString() || '32',
+        extraText: 'nouveaux ce mois',
+        textClass: 'text-success'
       },
-      { 
-        title: 'Séances Aujourd\'hui', 
-        value: s.todaySeances?.toString() || '8', 
-        change: `+${s.upcomingSeances || 5}`, 
-        icon: 'ti ti-arrow-up', 
-        badgeClass: 'bg-primary-subtle text-primary', 
-        extra: s.completedSeancesThisMonth?.toString() || '3', 
-        extraText: 'complétées ce mois', 
-        textClass: 'text-primary' 
+      {
+        title: 'Séances Aujourd\'hui',
+        value: s.todaySeances?.toString() || '8',
+        change: `+${s.upcomingSeances || 5}`,
+        icon: 'ti ti-arrow-up',
+        badgeClass: 'bg-primary-subtle text-primary',
+        extra: s.completedSeancesThisMonth?.toString() || '3',
+        extraText: 'complétées ce mois',
+        textClass: 'text-primary'
       },
-      { 
-        title: 'Taux de Présence', 
-        value: `${s.seanceCompletionRate?.toFixed(1) || 94.2}%`, 
-        change: '+2.1%', 
-        icon: 'ti ti-trending-up', 
-        badgeClass: 'bg-success-subtle text-success', 
-        extra: '↑', 
-        extraText: 'vs mois dernier', 
-        textClass: 'text-success' 
+      {
+        title: 'Taux de Présence',
+        value: `${s.seanceCompletionRate?.toFixed(1) || 94.2}%`,
+        change: '+2.1%',
+        icon: 'ti ti-trending-up',
+        badgeClass: 'bg-success-subtle text-success',
+        extra: '↑',
+        extraText: 'vs mois dernier',
+        textClass: 'text-success'
       },
-      { 
-        title: 'Alertes IA', 
-        value: s.highRiskPatients?.toString() || '5', 
-        change: '-2', 
-        icon: 'ti ti-trending-down', 
-        badgeClass: 'bg-warning-subtle text-warning', 
-        extra: '2', 
-        extraText: 'prioritaires', 
-        textClass: 'text-warning' 
+      {
+        title: 'Alertes IA',
+        value: s.highRiskPatients?.toString() || '5',
+        change: '-2',
+        icon: 'ti ti-trending-down',
+        badgeClass: 'bg-warning-subtle text-warning',
+        extra: '2',
+        extraText: 'prioritaires',
+        textClass: 'text-warning'
       }
     ];
   });
@@ -556,17 +556,17 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const dayNames = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
     const today = new Date().getDay();
     const todayIndex = today === 0 ? 6 : today - 1; // Convert Sunday=0 to index 6
-    
+
     if (trend.length > 0) {
       const maxValue = Math.max(...trend.map(t => t.value));
       return trend.map((t, i) => ({
         name: t.label,
         value: maxValue > 0 ? (t.value / maxValue) * 100 : 0,
         count: t.value,
-        isToday: i === todayIndex
+        isToday: i === trend.length - 1  // Last element is always today
       }));
     }
-    
+
     // No data available
     return [
       { name: 'Lun', value: 0, count: 0, isToday: todayIndex === 0 },
@@ -584,30 +584,30 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (s?.seancesByType) {
       const total = Object.values(s.seancesByType).reduce((a, b) => a + b, 0);
       const types = [
-        { key: 'CONSULTATION', name: 'Consultation', icon: 'ti ti-user', bgClass: 'bg-primary', barClass: 'bg-primary' },
-        { key: 'THERAPY', name: 'Thérapie', icon: 'ti ti-heart', bgClass: 'bg-success', barClass: 'bg-success' },
-        { key: 'FOLLOW_UP', name: 'Suivi', icon: 'ti ti-refresh', bgClass: 'bg-warning', barClass: 'bg-warning' },
-        { key: 'VIDEO', name: 'Vidéo', icon: 'ti ti-video', bgClass: 'bg-info', barClass: 'bg-info' }
+        { key: 'IN_PERSON', name: 'En personne', icon: 'ti ti-user', bgClass: 'bg-primary', barClass: 'bg-primary' },
+        { key: 'VIDEO_CALL', name: 'Vidéo', icon: 'ti ti-video', bgClass: 'bg-info', barClass: 'bg-info' },
+        { key: 'PHONE', name: 'Téléphone', icon: 'ti ti-phone', bgClass: 'bg-success', barClass: 'bg-success' },
+        { key: 'HOME_VISIT', name: 'Visite domicile', icon: 'ti ti-home', bgClass: 'bg-warning', barClass: 'bg-warning' }
       ];
-      
+
       return types.map(t => ({
         ...t,
         percent: total > 0 ? Math.round((s.seancesByType[t.key] || 0) / total * 100) : 0
       }));
     }
-    
+
     return [
-      { name: 'Consultation', percent: 0, icon: 'ti ti-user', bgClass: 'bg-primary', barClass: 'bg-primary' },
-      { name: 'Thérapie', percent: 0, icon: 'ti ti-heart', bgClass: 'bg-success', barClass: 'bg-success' },
-      { name: 'Suivi', percent: 0, icon: 'ti ti-refresh', bgClass: 'bg-warning', barClass: 'bg-warning' },
-      { name: 'Vidéo', percent: 0, icon: 'ti ti-video', bgClass: 'bg-info', barClass: 'bg-info' }
+      { name: 'En personne', percent: 0, icon: 'ti ti-user', bgClass: 'bg-primary', barClass: 'bg-primary' },
+      { name: 'Vidéo', percent: 0, icon: 'ti ti-video', bgClass: 'bg-info', barClass: 'bg-info' },
+      { name: 'Téléphone', percent: 0, icon: 'ti ti-phone', bgClass: 'bg-success', barClass: 'bg-success' },
+      { name: 'Visite domicile', percent: 0, icon: 'ti ti-home', bgClass: 'bg-warning', barClass: 'bg-warning' }
     ];
   });
 
   recentSessions = computed(() => {
     const seances = this.recentSeances();
     const colors = ['bg-primary', 'bg-success', 'bg-warning', 'bg-info', 'bg-danger'];
-    
+
     return seances.map((s, i) => ({
       id: s.id,
       patient: s.patientName,
@@ -644,7 +644,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   loadDashboardData() {
     this.loading.set(true);
-    
+
     forkJoin({
       stats: this.dashboardService.getDashboardStats(),
       seances: this.seanceService.getTodaySeances(),
@@ -736,11 +736,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (!dateString) return '';
     const date = new Date(dateString);
     const today = new Date();
-    
+
     if (date.toDateString() === today.toDateString()) {
       return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
     }
-    
+
     return date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
   }
 

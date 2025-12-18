@@ -4,6 +4,7 @@ import { ActivatedRoute, RouterModule, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { PatientService } from '../../../core/services/patient.service';
 import { SeanceService } from '../../../core/services/seance.service';
+import { PredictionService } from '../../../core/services/prediction.service';
 import { Patient, Seance } from '../../../core/models';
 
 @Component({
@@ -301,7 +302,7 @@ import { Patient, Seance } from '../../../core/models';
                 <i class="ti ti-calendar-plus text-primary"></i>
                 <span>Planifier une séance</span>
               </button>
-              <button class="quick-action">
+              <button class="quick-action" (click)="generatePrediction()">
                 <i class="ti ti-chart-dots text-warning"></i>
                 <span>Générer prédiction IA</span>
               </button>
@@ -531,15 +532,16 @@ export class PatientDetailComponent implements OnInit {
   private router = inject(Router);
   private patientService = inject(PatientService);
   private seanceService = inject(SeanceService);
+  private predictionService = inject(PredictionService);
 
   patient = signal<Patient | null>(null);
   seances = signal<Seance[]>([]);
   loading = signal(true);
   saving = signal(false);
   showEditModal = signal(false);
-  
+
   editForm: Partial<Patient> = {};
-  
+
   private colors = ['bg-primary', 'bg-success', 'bg-info', 'bg-warning', 'bg-danger'];
 
   ngOnInit() {
@@ -677,9 +679,9 @@ export class PatientDetailComponent implements OnInit {
   formatDate(dateStr: string): string {
     if (!dateStr) return '';
     const date = new Date(dateStr);
-    return date.toLocaleDateString('fr-FR', { 
-      day: '2-digit', 
-      month: 'short', 
+    return date.toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: 'short',
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
@@ -748,7 +750,7 @@ export class PatientDetailComponent implements OnInit {
   savePatient(): void {
     const p = this.patient();
     if (!p) return;
-    
+
     this.saving.set(true);
     this.patientService.updatePatient(p.id, this.editForm).subscribe({
       next: (updated) => {
@@ -768,8 +770,8 @@ export class PatientDetailComponent implements OnInit {
 
   openNewSeanceModal(): void {
     // Navigate to seances page with patient context
-    this.router.navigate(['/seances'], { 
-      queryParams: { patientId: this.patient()?.id } 
+    this.router.navigate(['/seances'], {
+      queryParams: { patientId: this.patient()?.id }
     });
   }
 
@@ -779,5 +781,31 @@ export class PatientDetailComponent implements OnInit {
       console.log('Delete patient:', this.patient()?.id);
       this.router.navigate(['/patients']);
     }
+  }
+
+  generatePrediction(): void {
+    const p = this.patient();
+    if (!p) return;
+
+    this.saving.set(true);
+    this.predictionService.generateDropoutRiskPrediction(p.id).subscribe({
+      next: (prediction) => {
+        // Update patient risk score from prediction
+        if (prediction) {
+          this.patient.set({
+            ...p,
+            riskScore: prediction.score,
+            riskCategory: prediction.riskLevel
+          });
+          alert(`Prédiction IA générée !\n\nScore de risque: ${prediction.score}%\nNiveau: ${prediction.riskLevel}\nRecommandation: ${prediction.recommendation}`);
+        }
+        this.saving.set(false);
+      },
+      error: (err) => {
+        console.error('Error generating prediction:', err);
+        alert('Erreur lors de la génération de la prédiction. Veuillez réessayer.');
+        this.saving.set(false);
+      }
+    });
   }
 }

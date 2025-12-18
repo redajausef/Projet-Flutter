@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, BehaviorSubject, tap, catchError, of } from 'rxjs';
+import { Observable, BehaviorSubject, map, catchError, of } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { Prediction, PageResponse } from '../models';
 
@@ -36,10 +36,11 @@ export class PredictionService {
     return this.http.get<any[]>(`${this.apiUrl}/high-risk`, {
       params: new HttpParams().set('minRisk', minRisk.toString())
     }).pipe(
-      tap(apiPredictions => {
+      map(apiPredictions => {
         const predictions = apiPredictions.map(p => this.mapApiToPrediction(p));
         this.predictionsSubject.next(predictions);
         this.loadingSubject.next(false);
+        return predictions;
       }),
       catchError(() => {
         this.loadingSubject.next(false);
@@ -99,7 +100,9 @@ export class PredictionService {
    * Generate dropout risk prediction
    */
   generateDropoutRiskPrediction(patientId: number): Observable<Prediction> {
-    return this.http.post<Prediction>(`${this.apiUrl}/patient/${patientId}/dropout-risk`, {});
+    return this.http.post<any>(`${this.apiUrl}/patient/${patientId}/dropout-risk`, {}).pipe(
+      map(api => this.mapApiToPrediction(api))
+    );
   }
 
   /**

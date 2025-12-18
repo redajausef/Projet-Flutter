@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { RouterModule, Router } from '@angular/router';
 import { Subject, takeUntil, forkJoin } from 'rxjs';
 import { PredictionService } from '../../../core/services/prediction.service';
 import { PatientService } from '../../../core/services/patient.service';
@@ -266,6 +266,7 @@ import { Prediction, Patient } from '../../../core/models';
 export class PredictionsDashboardComponent implements OnInit, OnDestroy {
   private predictionService = inject(PredictionService);
   private patientService = inject(PatientService);
+  private router = inject(Router);
   private destroy$ = new Subject<void>();
 
   // State
@@ -403,16 +404,31 @@ export class PredictionsDashboardComponent implements OnInit, OnDestroy {
   }
 
   scheduleFollowUp(prediction: Prediction) {
-    // Navigate to seances with patient pre-selected
-    console.log('Schedule follow-up for patient:', prediction.patientId);
+    // Navigate to seances page with patient pre-selected
+    this.router.navigate(['/seances'], {
+      queryParams: { patientId: prediction.patientId }
+    });
   }
 
   getFactorsList(factors: string[] | Record<string, number> | undefined): string[] {
     if (!factors) return [];
     if (Array.isArray(factors)) return factors;
-    // Convert object keys to display names
+
+    // French translations for factor keys
+    const translations: Record<string, string> = {
+      'days_since_last_session': 'Jours depuis dernière séance',
+      'no_show_rate': 'Taux d\'absence',
+      'cancellation_rate': 'Taux d\'annulation',
+      'cancellation_impact': 'Impact des annulations',
+      'no_show_impact': 'Impact des absences',
+      'inactivity_impact': 'Impact de l\'inactivité',
+      'total_sessions': 'Nombre de séances',
+      'avg_progress_rating': 'Note de progression',
+      'mood_improvement': 'Amélioration de l\'humeur'
+    };
+
     return Object.keys(factors).map(key =>
-      key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+      translations[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
     );
   }
 

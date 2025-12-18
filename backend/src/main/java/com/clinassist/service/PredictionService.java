@@ -53,6 +53,15 @@ public class PredictionService {
     }
 
     @Transactional
+    public PredictionDTO markAsReviewed(Long predictionId) {
+        Prediction prediction = predictionRepository.findById(predictionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Prediction not found"));
+        prediction.setIsActive(false);
+        prediction = predictionRepository.save(prediction);
+        return convertToDTO(prediction);
+    }
+
+    @Transactional
     public PredictionDTO generateNextSessionPrediction(Long patientId) {
         Patient patient = patientRepository.findById(patientId)
                 .orElseThrow(() -> new ResourceNotFoundException("Patient not found"));
@@ -130,6 +139,10 @@ public class PredictionService {
                 .build();
 
         prediction = predictionRepository.save(prediction);
+        
+        // Update patient's risk score in database for persistence
+        updatePatientRiskScore(patient, prediction);
+        
         return convertToDTO(prediction);
     }
 
@@ -246,22 +259,22 @@ public class PredictionService {
 
     private String generateDropoutRecommendations(Prediction.RiskCategory category) {
         return switch (category) {
-            case LOW -> "Continue current treatment plan. Patient shows good engagement.";
-            case MODERATE -> "Consider scheduling a follow-up call. Review treatment goals with patient.";
-            case HIGH -> "Urgent: Contact patient immediately. Consider adjusting treatment approach.";
-            case CRITICAL -> "Critical: Immediate intervention required. Schedule emergency consultation.";
+            case LOW -> "Continuez le plan de traitement actuel. Le patient montre un bon engagement.";
+            case MODERATE -> "Envisagez de planifier un appel de suivi. Révisez les objectifs de traitement avec le patient.";
+            case HIGH -> "Urgent : Contactez le patient immédiatement. Envisagez d'ajuster l'approche thérapeutique.";
+            case CRITICAL -> "Critique : Intervention immédiate requise. Planifiez une consultation d'urgence.";
         };
     }
 
     private String generateProgressRecommendations(double score) {
         if (score >= 80) {
-            return "Excellent progress! Consider transitioning to maintenance phase.";
+            return "Excellente progression ! Envisagez une transition vers la phase de maintien.";
         } else if (score >= 60) {
-            return "Good progress. Continue current treatment approach.";
+            return "Bonne progression. Continuez l'approche thérapeutique actuelle.";
         } else if (score >= 40) {
-            return "Moderate progress. Consider adjusting treatment intensity or approach.";
+            return "Progression modérée. Envisagez d'ajuster l'intensité ou l'approche du traitement.";
         } else {
-            return "Progress needs attention. Comprehensive treatment review recommended.";
+            return "La progression nécessite attention. Révision complète du traitement recommandée.";
         }
     }
 

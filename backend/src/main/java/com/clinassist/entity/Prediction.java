@@ -51,6 +51,9 @@ public class Prediction {
 
     private Boolean wasAccurate;
     private String actualOutcome;
+    
+    @Builder.Default
+    private Boolean isActive = true;
 
     private String modelVersion;
     private String algorithmUsed;

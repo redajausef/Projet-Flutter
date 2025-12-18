@@ -124,15 +124,20 @@ public class DashboardService {
                         status -> patientRepository.countByStatus(status)
                 ));
 
-        // Seances trend (last 7 days)
+        // Seances trend (last 7 days) with French labels
         List<DashboardStatsDTO.ChartDataPoint> seancesTrend = new ArrayList<>();
+        Map<String, String> frenchDays = Map.of(
+                "MONDAY", "Lun", "TUESDAY", "Mar", "WEDNESDAY", "Mer",
+                "THURSDAY", "Jeu", "FRIDAY", "Ven", "SATURDAY", "Sam", "SUNDAY", "Dim"
+        );
         for (int i = 6; i >= 0; i--) {
             LocalDate date = LocalDate.now().minusDays(i);
             LocalDateTime dayStart = LocalDateTime.of(date, LocalTime.MIN);
             LocalDateTime dayEnd = LocalDateTime.of(date, LocalTime.MAX);
             long count = seanceRepository.findByScheduledAtBetween(dayStart, dayEnd).size();
+            String dayLabel = frenchDays.getOrDefault(date.getDayOfWeek().toString(), date.getDayOfWeek().toString().substring(0, 3));
             seancesTrend.add(DashboardStatsDTO.ChartDataPoint.builder()
-                    .label(date.getDayOfWeek().toString().substring(0, 3))
+                    .label(dayLabel)
                     .value(count)
                     .color("#0D4F4F")
                     .build());

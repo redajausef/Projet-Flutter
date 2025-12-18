@@ -244,12 +244,12 @@ def calculate_heuristic_schedule(data):
 
 def get_progress_recommendations(category):
     recommendations = {
-        'EXCELLENT': "Excellent progress! Consider transitioning to maintenance phase.",
-        'GOOD': "Good progress. Continue current treatment approach.",
-        'MODERATE': "Moderate progress. Consider adjusting treatment intensity.",
-        'NEEDS_ATTENTION': "Progress needs attention. Comprehensive review recommended."
+        'EXCELLENT': "Excellente progression ! Envisagez une transition vers la phase de maintien.",
+        'GOOD': "Bonne progression. Continuez l'approche thérapeutique actuelle.",
+        'MODERATE': "Progression modérée. Envisagez d'ajuster l'intensité du traitement.",
+        'NEEDS_ATTENTION': "La progression nécessite attention. Révision complète recommandée."
     }
-    return recommendations.get(category, "Continue monitoring progress.")
+    return recommendations.get(category, "Continuez le suivi de la progression.")
 
 if __name__ == '__main__':
     load_or_train_models()
