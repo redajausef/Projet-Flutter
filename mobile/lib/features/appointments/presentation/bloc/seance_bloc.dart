@@ -1,73 +1,68 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-
+import 'package:equatable/equatable.dart';
 import '../../data/repositories/seance_repository.dart';
-import 'seance_event.dart';
-import 'seance_state.dart';
+import '../../data/models/seance_model.dart';
 
+// Events
+abstract class SeanceEvent extends Equatable {
+  @override
+  List<Object?> get props => [];
+}
+
+class LoadPatientSeances extends SeanceEvent {
+  final int patientId;
+  final String token;
+  
+  LoadPatientSeances(this.patientId, this.token);
+  
+  @override
+  List<Object?> get props => [patientId, token];
+}
+
+// States
+abstract class SeanceState extends Equatable {
+  @override
+  List<Object?> get props => [];
+}
+
+class SeanceInitial extends SeanceState {}
+
+class SeanceLoading extends SeanceState {}
+
+class SeancesLoaded extends SeanceState {
+  final List<SeanceModel> seances;
+  
+  SeancesLoaded(this.seances);
+  
+  @override
+  List<Object?> get props => [seances];
+}
+
+class SeanceError extends SeanceState {
+  final String message;
+  
+  SeanceError(this.message);
+  
+  @override
+  List<Object?> get props => [message];
+}
+
+// Bloc
 class SeanceBloc extends Bloc<SeanceEvent, SeanceState> {
   final SeanceRepository seanceRepository;
 
   SeanceBloc({required this.seanceRepository}) : super(SeanceInitial()) {
     on<LoadPatientSeances>(_onLoadPatientSeances);
-    on<LoadUpcomingSeances>(_onLoadUpcomingSeances);
-    on<CreateSeance>(_onCreateSeance);
-    on<CheckSeanceConflict>(_onCheckSeanceConflict);
   }
 
-  Future<void> _onLoadPatientSeances(
-    LoadPatientSeances event,
-    Emitter<SeanceState> emit,
-  ) async {
+  Future<void> _onLoadPatientSeances(LoadPatientSeances event, Emitter<SeanceState> emit) async {
     emit(SeanceLoading());
     try {
-      final seances = await seanceRepository.getPatientSeances(event.patientId, event.token);
+      final seancesData = await seanceRepository.getPatientSeances(event.patientId, event.token);
+      final seances = seancesData.map((s) => SeanceModel.fromJson(s)).toList();
       emit(SeancesLoaded(seances));
     } catch (e) {
-      emit(SeanceError(e.toString()));
-    }
-  }
-
-  Future<void> _onLoadUpcomingSeances(
-    LoadUpcomingSeances event,
-    Emitter<SeanceState> emit,
-  ) async {
-    emit(SeanceLoading());
-    try {
-      final seances = await seanceRepository.getUpcomingSeances(event.patientId, event.token);
-      emit(SeancesLoaded(seances));
-    } catch (e) {
-      emit(SeanceError(e.toString()));
-    }
-  }
-
-  Future<void> _onCreateSeance(
-    CreateSeance event,
-    Emitter<SeanceState> emit,
-  ) async {
-    emit(SeanceCreating());
-    try {
-      final seance = await seanceRepository.createSeance(event.request, event.token);
-      emit(SeanceCreated(seance));
-    } catch (e) {
-      emit(SeanceError(e.toString()));
-    }
-  }
-
-  Future<void> _onCheckSeanceConflict(
-    CheckSeanceConflict event,
-    Emitter<SeanceState> emit,
-  ) async {
-    emit(SeanceConflictChecking());
-    try {
-      final hasConflict = await seanceRepository.checkConflict(
-        event.therapeuteId,
-        event.scheduledAt,
-        event.durationMinutes,
-        event.token,
-      );
-      emit(SeanceConflictChecked(hasConflict));
-    } catch (e) {
-      emit(SeanceError(e.toString()));
+      emit(SeanceError(e.toString().replaceAll('Exception: ', '')));
     }
   }
 }

@@ -1,106 +1,86 @@
 import 'package:dio/dio.dart';
-
-import '../models/therapeute_model.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthRepository {
-  final String baseUrl = 'http://localhost:8080/api'; // Use localhost for web/chrome
-  final Dio dio;
+  final Dio _dio = Dio(BaseOptions(
+    baseUrl: 'http://localhost:8080/api',
+    connectTimeout: const Duration(seconds: 10),
+    receiveTimeout: const Duration(seconds: 10),
+  ));
 
-  AuthRepository({Dio? dio})
-      : dio = dio ?? Dio(BaseOptions(
-              baseUrl: 'http://localhost:8080/api',
-              connectTimeout: const Duration(seconds: 30),
-              receiveTimeout: const Duration(seconds: 30),
-            ));
-
-  Future<Map<String, dynamic>> login({
-    required String username,
-    required String password,
-  }) async {
+  Future<Map<String, dynamic>> login(String usernameOrEmail, String password) async {
     try {
-      final response = await dio.post(
-        '/auth/login',
-        data: {
-          'usernameOrEmail': username,
-          'password': password,
-        },
-      );
-
-      return response.data as Map<String, dynamic>;
-    } on DioException catch (e) {
-      if (e.response != null) {
-        throw Exception('Échec de connexion: ${e.response?.statusCode}');
-      } else {
-        throw Exception('Erreur de connexion: ${e.message}');
-      }
-    } catch (e) {
-      throw Exception('Erreur de connexion: $e');
-    }
-  }
-
-  Future<Map<String, dynamic>> registerPatient({
-    required String email,
-    required String firstName,
-    required String lastName,
-    required String phoneNumber,
-    required DateTime dateOfBirth,
-    required String gender,
-    required String password,
-    String? address,
-    int? assignedTherapeuteId,
-  }) async {
-    try {
-      final response = await dio.post(
-        '/auth/register/patient',
-        data: {
-          'email': email,
-          'firstName': firstName,
-          'lastName': lastName,
-          'phoneNumber': phoneNumber,
-          'dateOfBirth': dateOfBirth.toIso8601String().split('T')[0],
-          'gender': gender,
-          'address': address,
-          'assignedTherapeuteId': assignedTherapeuteId,
-        },
-      );
-
-      return response.data as Map<String, dynamic>;
-    } on DioException catch (e) {
-      if (e.response != null) {
-        final error = e.response?.data;
-        throw Exception(error['message'] ?? 'Échec de l\'inscription');
-      } else {
-        throw Exception('Erreur d\'inscription: ${e.message}');
-      }
-    } catch (e) {
-      throw Exception('Erreur d\'inscription: $e');
-    }
-  }
-
-  Future<List<TherapeuteModel>> getAvailableTherapeutes() async {
-    try {
-      final response = await dio.get('/therapeutes');
-
-      // Backend returns paginated response with 'content' field
-      final Map<String, dynamic> paginatedData = response.data as Map<String, dynamic>;
-      final List<dynamic> data = paginatedData['content'] as List;
+      final response = await _dio.post('/auth/login', data: {
+        'usernameOrEmail': usernameOrEmail,
+        'password': password,
+      });
       
-      return data
-          .map((json) => TherapeuteModel.fromJson(json as Map<String, dynamic>))
-          .toList();
+      final data = response.data;
+      
+      // Save token and user info
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('token', data['accessToken'] ?? '');
+      await prefs.setInt('user_id', data['user']?['id'] ?? 0);
+      await prefs.setString('username', data['user']?['username'] ?? '');
+      await prefs.setString('email', data['user']?['email'] ?? '');
+      await prefs.setString('role', data['user']?['role'] ?? '');
+      
+      return data;
     } on DioException catch (e) {
-      if (e.response != null) {
-        throw Exception('Échec de récupération des thérapeutes: ${e.response?.statusCode}');
-      } else {
-        throw Exception('Erreur de récupération des thérapeutes: ${e.message}');
-      }
-    } catch (e) {
-      throw Exception('Erreur de récupération des thérapeutes: $e');
+      throw Exception(_handleDioError(e));
+    }
+  }
+
+  Future<Map<String, dynamic>> register(Map<String, dynamic> userData) async {
+    try {
+      final response = await _dio.post('/auth/register', data: userData);
+      return response.data;
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
     }
   }
 
   Future<void> logout() async {
-    // Clear local storage/secure storage
-    // No API call needed for JWT logout
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+  }
+
+  Future<String?> getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('token');
+  }
+
+  Future<int?> getUserId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt('user_id');
+  }
+
+  Future<int?> getPatientId() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getInt('user_id');
+    final token = prefs.getString('token');
+    
+    if (userId == null || token == null) return null;
+    
+    try {
+      final response = await _dio.get(
+        '/patients/user/$userId',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+      return response.data['id'] as int?;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  String _handleDioError(DioException e) {
+    if (e.response?.statusCode == 401) {
+      return 'Identifiants incorrects';
+    } else if (e.response?.statusCode == 403) {
+      return 'Accès refusé';
+    } else if (e.type == DioExceptionType.connectionTimeout) {
+      return 'Connexion au serveur impossible';
+    }
+    return e.message ?? 'Erreur de connexion';
   }
 }

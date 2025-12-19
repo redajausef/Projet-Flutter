@@ -2,16 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:table_calendar/table_calendar.dart';
 import 'package:dio/dio.dart';
-
+import 'package:table_calendar/table_calendar.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../bloc/seance_bloc.dart';
-import '../bloc/seance_event.dart';
-import '../bloc/seance_state.dart';
 import '../../data/models/seance_model.dart';
-import 'create_appointment_page.dart';
 
 class AppointmentsPage extends StatefulWidget {
   const AppointmentsPage({super.key});
@@ -28,15 +24,16 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
   @override
   void initState() {
     super.initState();
-    _loadAppointments();
+    _loadSeances();
   }
 
-  void _loadAppointments() async {
+  void _loadSeances() async {
     final authState = context.read<AuthBloc>().state;
     if (authState is Authenticated) {
       try {
         final prefs = await SharedPreferences.getInstance();
-        final userId = prefs.getInt('user_id') ?? 1;
+        final userId = prefs.getInt('user_id');
+        if (userId == null) return;
         
         final dio = Dio(BaseOptions(
           baseUrl: 'http://localhost:8080/api',
@@ -48,7 +45,7 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
         
         context.read<SeanceBloc>().add(LoadPatientSeances(patientId, authState.token));
       } catch (e) {
-        print('Error loading appointments: $e');
+        print('Error loading seances: $e');
       }
     }
   }
@@ -73,58 +70,30 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
                     const Text(
                       'Mes Séances',
                       style: TextStyle(
-                        color: AppColors.textPrimary,
                         fontSize: 28,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                    InkWell(
-                      onTap: () async {
-                        final result = await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => BlocProvider.value(
-                              value: context.read<SeanceBloc>(),
-                              child: const CreateAppointmentPage(),
-                            ),
-                          ),
-                        );
-                        if (result == true) {
-                          // Reload appointments after creating one
-                          _loadAppointments();
-                        }
-                      },
-                      borderRadius: BorderRadius.circular(14),
-                      child: Container(
-                        width: 46,
-                        height: 46,
-                        decoration: BoxDecoration(
-                          gradient: AppColors.primaryGradient,
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.primary.withOpacity(0.3),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.add_rounded,
-                          color: Colors.white,
-                        ),
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        gradient: AppColors.primaryGradient,
+                        borderRadius: BorderRadius.circular(14),
                       ),
+                      child: const Icon(Icons.add, color: Colors.white),
                     ),
                   ],
                 ),
               ),
+              
               // Calendar
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 24),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: AppColors.card,
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(20),
                 ),
                 child: TableCalendar(
                   firstDay: DateTime.utc(2020, 1, 1),
@@ -152,126 +121,54 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
                       color: AppColors.accent,
                       shape: BoxShape.circle,
                     ),
-                    defaultTextStyle: const TextStyle(color: AppColors.textPrimary),
-                    weekendTextStyle: const TextStyle(color: AppColors.textSecondary),
-                    outsideTextStyle: TextStyle(color: AppColors.textMuted.withOpacity(0.5)),
-                    markerDecoration: const BoxDecoration(
-                      color: AppColors.success,
-                      shape: BoxShape.circle,
-                    ),
                   ),
-                  headerStyle: HeaderStyle(
+                  headerStyle: const HeaderStyle(
                     formatButtonVisible: true,
                     titleCentered: true,
-                    formatButtonDecoration: BoxDecoration(
-                      color: AppColors.surfaceLight,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    formatButtonTextStyle: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 12,
-                    ),
-                    leftChevronIcon: const Icon(
-                      Icons.chevron_left_rounded,
-                      color: AppColors.textSecondary,
-                    ),
-                    rightChevronIcon: const Icon(
-                      Icons.chevron_right_rounded,
-                      color: AppColors.textSecondary,
-                    ),
-                    titleTextStyle: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  daysOfWeekStyle: const DaysOfWeekStyle(
-                    weekdayStyle: TextStyle(
-                      color: AppColors.textMuted,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    weekendStyle: TextStyle(
-                      color: AppColors.textMuted,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
                   ),
                 ),
               ),
               const SizedBox(height: 24),
-              // Appointments List
+              
+              // Seances list
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Rendez-vous',
-                      style: TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceLight,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.filter_list_rounded,
-                            size: 16,
-                            color: AppColors.textSecondary,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Filtrer',
-                            style: TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                child: const Text(
+                  'Rendez-vous',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                 ),
               ),
               const SizedBox(height: 16),
+              
               Expanded(
                 child: BlocBuilder<SeanceBloc, SeanceState>(
                   builder: (context, state) {
                     if (state is SeanceLoading) {
-                      return const Center(
-                        child: CircularProgressIndicator(
-                          color: AppColors.primary,
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    
+                    if (state is SeanceError) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.error_outline, size: 64, color: AppColors.error),
+                            const SizedBox(height: 16),
+                            Text(state.message),
+                          ],
                         ),
                       );
-                    } else if (state is SeancesLoaded) {
-                      final seances = state.seances;
-                      
-                      if (seances.isEmpty) {
+                    }
+                    
+                    if (state is SeancesLoaded) {
+                      if (state.seances.isEmpty) {
                         return Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(
-                                Icons.calendar_today_outlined,
-                                size: 64,
-                                color: AppColors.textMuted,
-                              ),
+                              Icon(Icons.calendar_today, size: 64, color: AppColors.textMuted),
                               const SizedBox(height: 16),
-                              Text(
-                                'Aucune séance programmée',
-                                style: TextStyle(
-                                  color: AppColors.textSecondary,
-                                  fontSize: 16,
-                                ),
-                              ),
+                              Text('Aucune séance', style: TextStyle(color: AppColors.textSecondary)),
                             ],
                           ),
                         );
@@ -279,41 +176,10 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
                       
                       return ListView.builder(
                         padding: const EdgeInsets.symmetric(horizontal: 24),
-                        itemCount: seances.length,
+                        itemCount: state.seances.length,
                         itemBuilder: (context, index) {
-                          final seance = seances[index];
-                          return _AppointmentCard(appointment: seance);
+                          return _SeanceCard(seance: state.seances[index]);
                         },
-                      );
-                    } else if (state is SeanceError) {
-                      return Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.error_outline,
-                              size: 64,
-                              color: Colors.red,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Erreur de chargement',
-                              style: TextStyle(
-                                color: AppColors.textPrimary,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              state.message,
-                              style: TextStyle(
-                                color: AppColors.textSecondary,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
-                        ),
                       );
                     }
                     
@@ -329,20 +195,17 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
   }
 }
 
-class _AppointmentCard extends StatelessWidget {
-  final SeanceModel appointment;
+class _SeanceCard extends StatelessWidget {
+  final SeanceModel seance;
 
-  const _AppointmentCard({required this.appointment});
+  const _SeanceCard({required this.seance});
 
   @override
   Widget build(BuildContext context) {
-    final isUpcoming = appointment.scheduledAt.isAfter(DateTime.now());
-    final isVideo = appointment.isVideoSession;
-    
     Color statusColor;
     String statusText;
     
-    switch (appointment.status) {
+    switch (seance.status) {
       case 'COMPLETED':
         statusColor = AppColors.success;
         statusText = 'Terminée';
@@ -355,26 +218,17 @@ class _AppointmentCard extends StatelessWidget {
         statusColor = AppColors.error;
         statusText = 'Annulée';
         break;
-      case 'PENDING_APPROVAL':
-        statusColor = Colors.orange;
-        statusText = 'En attente d\'approbation';
-        break;
       default:
         statusColor = AppColors.warning;
         statusText = 'Planifiée';
     }
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.card,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isUpcoming 
-              ? AppColors.primary.withOpacity(0.3)
-              : Colors.transparent,
-        ),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -389,97 +243,42 @@ class _AppointmentCard extends StatelessWidget {
                 ),
                 child: Text(
                   statusText,
-                  style: TextStyle(
-                    color: statusColor,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.w600),
                 ),
               ),
               const Spacer(),
               Icon(
-                isVideo ? Icons.videocam_rounded : Icons.location_on_rounded,
+                seance.isVideoSession ? Icons.videocam : Icons.location_on,
                 size: 16,
                 color: AppColors.textMuted,
               ),
               const SizedBox(width: 4),
               Text(
-                isVideo ? 'Vidéo' : 'Présentiel',
-                style: TextStyle(
-                  color: AppColors.textMuted,
-                  fontSize: 12,
-                ),
+                seance.isVideoSession ? 'Vidéo' : 'Présentiel',
+                style: TextStyle(color: AppColors.textMuted, fontSize: 12),
               ),
             ],
-          ),
-          const SizedBox(height: 14),
-          Text(
-            appointment.therapeuteName ?? 'Thérapeute',
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
           ),
           const SizedBox(height: 12),
           Row(
             children: [
-              Icon(
-                Icons.calendar_today_rounded,
-                size: 14,
-                color: AppColors.accent,
-              ),
+              Icon(Icons.calendar_today, size: 14, color: AppColors.accent),
               const SizedBox(width: 8),
               Text(
-                DateFormat('EEEE d MMMM yyyy', 'fr_FR').format(appointment.scheduledAt),
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 13,
-                ),
+                DateFormat('EEEE d MMMM', 'fr_FR').format(seance.scheduledAt),
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
               ),
               const SizedBox(width: 16),
-              Icon(
-                Icons.access_time_rounded,
-                size: 14,
-                color: AppColors.accent,
-              ),
+              Icon(Icons.access_time, size: 14, color: AppColors.accent),
               const SizedBox(width: 8),
               Text(
-                DateFormat('HH:mm').format(appointment.scheduledAt),
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 13,
-                ),
+                DateFormat('HH:mm').format(seance.scheduledAt),
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
               ),
             ],
           ),
-          if (isUpcoming) ...[
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () {},
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: AppColors.error.withOpacity(0.5)),
-                      foregroundColor: AppColors.error,
-                    ),
-                    child: const Text('Annuler'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {},
-                    child: Text(isVideo ? 'Rejoindre' : 'Détails'),
-                  ),
-                ),
-              ],
-            ),
-          ],
         ],
       ),
     );
   }
 }
-

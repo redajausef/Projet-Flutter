@@ -9,49 +9,19 @@ class AppointmentDetailPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: AppColors.backgroundGradient,
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // App Bar
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.arrow_back_ios_rounded),
-                    ),
-                    const Expanded(
-                      child: Text(
-                        'Détails de la séance',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 48),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Center(
-                  child: Text(
-                    'Appointment ID: $appointmentId',
-                    style: const TextStyle(color: AppColors.textSecondary),
-                  ),
-                ),
-              ),
-            ],
-          ),
+      appBar: AppBar(
+        title: const Text('Détails du rendez-vous'),
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.calendar_month, size: 64, color: AppColors.primary),
+            const SizedBox(height: 16),
+            Text('Rendez-vous #$appointmentId'),
+          ],
         ),
       ),
     );
   }
 }
-

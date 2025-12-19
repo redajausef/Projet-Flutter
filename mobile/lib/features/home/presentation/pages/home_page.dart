@@ -1,21 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:dio/dio.dart';
-
+import 'package:intl/intl.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
-import '../../../appointments/presentation/bloc/seance_bloc.dart';
-import '../../../appointments/presentation/bloc/seance_event.dart';
-import '../../../appointments/presentation/bloc/seance_state.dart';
-import '../../../appointments/data/models/seance_model.dart';
 import '../bloc/home_bloc.dart';
-import '../bloc/home_event.dart';
-import '../bloc/home_state.dart';
-import '../widgets/stat_card.dart';
-import '../widgets/upcoming_appointment_card.dart';
-import '../widgets/quick_action_button.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -31,29 +20,10 @@ class _HomePageState extends State<HomePage> {
     _loadData();
   }
 
-  void _loadData() async {
+  void _loadData() {
     final authState = context.read<AuthBloc>().state;
     if (authState is Authenticated) {
-      try {
-        // Get user ID from SharedPreferences
-        final prefs = await SharedPreferences.getInstance();
-        final userId = prefs.getInt('user_id') ?? 1;
-        
-        // Fetch the patient_id using the user_id
-        final dio = Dio(BaseOptions(
-          baseUrl: 'http://localhost:8080/api',
-          headers: {'Authorization': 'Bearer ${authState.token}'},
-        ));
-        
-        final patientResponse = await dio.get('/patients/user/$userId');
-        final patientId = patientResponse.data['id'] as int;
-        
-        // Now load data with the correct patient_id
-        context.read<HomeBloc>().add(LoadPatientStats(patientId, authState.token));
-        context.read<SeanceBloc>().add(LoadUpcomingSeances(patientId, authState.token));
-      } catch (e) {
-        print('Error loading data: $e');
-      }
+      context.read<HomeBloc>().add(LoadHomeData(authState.token));
     }
   }
 
@@ -65,317 +35,386 @@ class _HomePageState extends State<HomePage> {
           gradient: AppColors.backgroundGradient,
         ),
         child: SafeArea(
-          child: CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                child: _buildHeader(context),
-              ),
-              SliverToBoxAdapter(
-                child: _buildStatsSection(),
-              ),
-              SliverToBoxAdapter(
-                child: _buildQuickActions(context),
-              ),
-              SliverToBoxAdapter(
-                child: _buildUpcomingAppointments(context),
-              ),
-              const SliverToBoxAdapter(
-                child: SizedBox(height: 100),
-              ),
-            ],
+          child: RefreshIndicator(
+            onRefresh: () async => _loadData(),
+            child: BlocBuilder<HomeBloc, HomeState>(
+              builder: (context, state) {
+                if (state is HomeLoading) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                
+                if (state is HomeError) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.error_outline, size: 64, color: AppColors.error),
+                        const SizedBox(height: 16),
+                        Text(state.message),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _loadData,
+                          child: const Text('Réessayer'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                final stats = state is HomeLoaded ? state.stats : <String, dynamic>{};
+                final username = stats['patientName'] ?? 'Patient';
+                
+                return SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _getGreeting(),
+                                style: TextStyle(
+                                  color: AppColors.textMuted,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              Text(
+                                username,
+                                style: const TextStyle(
+                                  color: AppColors.textPrimary,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.settings_outlined),
+                            onPressed: () => context.push('/profile'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      
+                      // Vue d'ensemble
+                      const Text(
+                        'Vue d\'ensemble',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Stats cards row
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _StatsCard(
+                              icon: Icons.calendar_today,
+                              title: 'Séances',
+                              value: '${stats['totalSeances'] ?? 0}',
+                              subtitle: '${stats['completedSeances'] ?? 0} terminées',
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _StatsCard(
+                              icon: Icons.trending_up,
+                              title: 'Progrès',
+                              value: '${stats['progressPercent'] ?? 0}%',
+                              subtitle: 'Taux de complétion',
+                              color: AppColors.accent,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      
+                      // Risk score card
+                      _RiskScoreCard(
+                        score: stats['riskScore'] ?? 0,
+                        category: stats['riskCategory'] ?? 'LOW',
+                      ),
+                      const SizedBox(height: 24),
+                      
+                      // Quick actions
+                      const Text(
+                        'Actions rapides',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          _QuickActionButton(
+                            icon: Icons.calendar_month,
+                            label: 'Rendez-vous',
+                            onTap: () => context.go('/appointments'),
+                          ),
+                          const SizedBox(width: 16),
+                          _QuickActionButton(
+                            icon: Icons.analytics,
+                            label: 'Prédictions',
+                            onTap: () => context.go('/predictions'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      
+                      // Upcoming appointments
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Prochains rendez-vous',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () => context.go('/appointments'),
+                            child: const Text('Voir tout'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      _buildUpcomingAppointments(stats['upcomingAppointments'] ?? []),
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
-    return BlocBuilder<AuthBloc, AuthState>(
-      builder: (context, state) {
-        final username = state is Authenticated ? state.username : 'Utilisateur';
-        final initial = username.isNotEmpty ? username.substring(0, 1).toUpperCase() : 'U';
-        
-        return Padding(
-          padding: const EdgeInsets.all(24),
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Bonjour ☀️';
+    if (hour < 18) return 'Bon après-midi ☀️';
+    return 'Bonsoir 🌙';
+  }
+
+  Widget _buildUpcomingAppointments(List appointments) {
+    if (appointments.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Center(
+          child: Text(
+            'Aucun rendez-vous à venir',
+            style: TextStyle(color: AppColors.textMuted),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: appointments.map<Widget>((apt) {
+        final date = DateTime.tryParse(apt['scheduledAt'] ?? '') ?? DateTime.now();
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(16),
+          ),
           child: Row(
             children: [
               Container(
-                width: 52,
-                height: 52,
+                width: 50,
+                height: 50,
                 decoration: BoxDecoration(
-                  gradient: AppColors.accentGradient,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.accent.withOpacity(0.3),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+                  color: AppColors.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: Center(
-                  child: Text(
-                    initial,
-                    style: const TextStyle(
-                      color: AppColors.background,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
+                child: const Icon(Icons.event, color: AppColors.primary),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _getGreeting(),
-                      style: TextStyle(
-                        color: AppColors.textMuted,
-                        fontSize: 14,
-                      ),
+                      DateFormat('EEEE d MMMM', 'fr_FR').format(date),
+                      style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
-                    const SizedBox(height: 4),
                     Text(
-                      username,
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      overflow: TextOverflow.ellipsis,
+                      DateFormat('HH:mm').format(date),
+                      style: TextStyle(color: AppColors.textMuted),
                     ),
                   ],
                 ),
               ),
-              IconButton(
-                onPressed: () => context.go('/profile'),
-                icon: const Icon(Icons.settings_outlined),
-                color: AppColors.textPrimary,
-              ),
+              Icon(Icons.chevron_right, color: AppColors.textMuted),
             ],
           ),
         );
-      },
+      }).toList(),
     );
   }
+}
 
-  String _getGreeting() {
-    final hour = DateTime.now().hour;
-    if (hour < 12) return 'Bonjour 👋';
-    if (hour < 18) return 'Bon après-midi ☀️';
-    return 'Bonsoir 🌙';
-  }
+class _StatsCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String value;
+  final String subtitle;
+  final Color color;
 
-  Widget _buildStatsSection() {
-    return BlocBuilder<HomeBloc, HomeState>(
-      builder: (context, state) {
-        if (state is HomeLoading) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-            child: Center(
-              child: CircularProgressIndicator(
-                color: AppColors.primary,
-              ),
-            ),
-          );
-        }
+  const _StatsCard({
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.subtitle,
+    required this.color,
+  });
 
-        if (state is HomeError) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-            child: Text(
-              'Erreur: ${state.message}',
-              style: const TextStyle(color: AppColors.error),
-              textAlign: TextAlign.center,
-            ),
-          );
-        }
-
-        final stats = state is HomeLoaded ? state.stats : null;
-        
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Vue d\'ensemble',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: StatCard(
-                      title: 'Séances',
-                      value: '${stats?.totalSeances ?? 0}',
-                      subtitle: '${stats?.completedSeances ?? 0} terminées',
-                      icon: Icons.calendar_today_rounded,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: StatCard(
-                      title: 'Progrès',
-                      value: '${stats?.completionRate.toStringAsFixed(0) ?? 0}%',
-                      subtitle: 'Taux de complétion',
-                      icon: Icons.trending_up_rounded,
-                      color: AppColors.success,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              if (stats?.riskScore != null)
-                StatCard(
-                  title: 'Score de Risque',
-                  value: '${stats!.riskScore!.toStringAsFixed(0)}',
-                  subtitle: stats.riskCategory ?? 'Non évalué',
-                  icon: Icons.health_and_safety_rounded,
-                  color: _getRiskColor(stats.riskScore!),
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Color _getRiskColor(double score) {
-    if (score >= 70) return Colors.red;
-    if (score >= 40) return Colors.orange;
-    return AppColors.success;
-  }
-
-  Widget _buildQuickActions(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Actions rapides',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
             ),
+            child: Icon(icon, color: color, size: 20),
           ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: QuickActionButton(
-                  icon: Icons.calendar_month_rounded,
-                  label: 'Rendez-vous',
-                  onTap: () => context.go('/appointments'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: QuickActionButton(
-                  icon: Icons.analytics_rounded,
-                  label: 'Prédictions',
-                  onTap: () => context.go('/predictions'),
-                ),
-              ),
-            ],
-          ),
+          const SizedBox(height: 12),
+          Text(title, style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+          Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+          Text(subtitle, style: TextStyle(color: color, fontSize: 11)),
         ],
       ),
     );
   }
+}
 
-  Widget _buildUpcomingAppointments(BuildContext context) {
-    return BlocBuilder<SeanceBloc, SeanceState>(
-      builder: (context, state) {
-        if (state is SeanceLoading) {
-          return const Padding(
-            padding: EdgeInsets.all(24),
-            child: Center(
-              child: CircularProgressIndicator(
-                color: AppColors.primary,
-              ),
+class _RiskScoreCard extends StatelessWidget {
+  final int score;
+  final String category;
+
+  const _RiskScoreCard({required this.score, required this.category});
+
+  @override
+  Widget build(BuildContext context) {
+    Color riskColor;
+    switch (category.toUpperCase()) {
+      case 'LOW':
+        riskColor = AppColors.riskLow;
+        break;
+      case 'MODERATE':
+        riskColor = AppColors.riskModerate;
+        break;
+      case 'HIGH':
+        riskColor = AppColors.riskHigh;
+        break;
+      case 'CRITICAL':
+        riskColor = AppColors.riskCritical;
+        break;
+      default:
+        riskColor = AppColors.riskLow;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              color: riskColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
             ),
-          );
-        }
-
-        if (state is SeanceError) {
-          return Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(
-              'Erreur: ${state.message}',
-              style: const TextStyle(color: AppColors.error),
-            ),
-          );
-        }
-
-        final seances = state is SeancesLoaded ? state.seances : [];
-        
-        return Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Prochains rendez-vous',
-                    style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () => context.go('/appointments'),
-                    child: const Text(
-                      'Voir tout',
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              if (seances.isEmpty)
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 20),
-                    child: Text(
-                      'Aucun rendez-vous à venir',
-                      style: TextStyle(
-                        color: AppColors.textMuted,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                )
-              else
-                ...seances.take(3).map((seance) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: UpcomingAppointmentCard(
-                        therapeuteName: seance.therapeuteName ?? 'Thérapeute',
-                        specialty: seance.type ?? 'Séance',
-                        dateTime: seance.scheduledAt,
-                        type: seance.type ?? 'Consultation',
-                        imageUrl: '', // No image URL in API
-                      ),
-                    )),
-            ],
+            child: Icon(Icons.shield, color: riskColor),
           ),
-        );
-      },
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Score de Risque', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                Text('$score', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                Text(category, style: TextStyle(color: riskColor, fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
+          Icon(Icons.chevron_right, color: AppColors.textMuted),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _QuickActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Column(
+        children: [
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.shadow,
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Icon(icon, color: AppColors.primary),
+          ),
+          const SizedBox(height: 8),
+          Text(label, style: const TextStyle(fontSize: 12)),
+        ],
+      ),
     );
   }
 }
