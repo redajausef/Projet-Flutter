@@ -334,8 +334,8 @@ docker-compose build backend && docker-compose up -d backend
 
 | Utilisateur | Mot de passe | Rôle |
 |-------------|--------------|------|
-| dr.martin | password123 | THERAPEUTE |
-| admin | admin123 | ADMIN |
+| dr.martin | test123 | THERAPEUTE |
+
 
 ---
 
@@ -351,6 +351,4 @@ docker-compose build backend && docker-compose up -d backend
 
 ---
 
-## 📄 License
 
-MIT License - Projet Académique 2024
