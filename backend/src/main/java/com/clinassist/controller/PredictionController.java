@@ -17,7 +17,7 @@ import java.util.List;
 @RequiredArgsConstructor
 @Tag(name = "Predictions", description = "Predictive analytics endpoints")
 @SecurityRequirement(name = "bearerAuth")
-@PreAuthorize("hasAnyRole('ADMIN', 'THERAPEUTE')")
+@PreAuthorize("hasAnyRole('ADMIN', 'THERAPEUTE', 'PATIENT')")
 public class PredictionController {
 
     private final PredictionService predictionService;
