@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:dio/dio.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
@@ -28,15 +29,37 @@ class _PredictionsPageState extends State<PredictionsPage> {
   }
 
   Future<void> _loadPatientIdAndPredictions() async {
-    // For demo, always use patientId 1 (Sara Ouazzani - good patient)
-    // Note: In production, this should fetch the patient associated with the user
-    _patientId = 1;
-    _loadPredictions();
+    final authState = context.read<AuthBloc>().state;
+    if (authState is Authenticated) {
+      try {
+        // Get userId from SharedPreferences (saved during login)
+        final prefs = await SharedPreferences.getInstance();
+        final userId = prefs.getInt('user_id');
+        
+        if (userId != null) {
+          // Fetch the patient associated with this user from the API
+          final dio = Dio(BaseOptions(
+            baseUrl: 'http://localhost:8080/api',
+            headers: {'Authorization': 'Bearer ${authState.token}'},
+          ));
+          
+          final patientResponse = await dio.get('/patients/user/$userId');
+          _patientId = patientResponse.data['id'] as int;
+          print('Loaded patientId: $_patientId for userId: $userId');
+        }
+        
+        _loadPredictions();
+      } catch (e) {
+        print('Error loading patientId: $e');
+        // Try to load predictions anyway with default
+        _loadPredictions();
+      }
+    }
   }
 
   void _loadPredictions() {
     final authState = context.read<AuthBloc>().state;
-    if (authState is Authenticated) {
+    if (authState is Authenticated && _patientId > 0) {
       context.read<PredictionBloc>().add(
         LoadPatientPredictions(
           _patientId,
@@ -48,7 +71,7 @@ class _PredictionsPageState extends State<PredictionsPage> {
 
   void _generatePrediction() {
     final authState = context.read<AuthBloc>().state;
-    if (authState is Authenticated) {
+    if (authState is Authenticated && _patientId > 0) {
       context.read<PredictionBloc>().add(
         GenerateDropoutRiskPrediction(
           _patientId,

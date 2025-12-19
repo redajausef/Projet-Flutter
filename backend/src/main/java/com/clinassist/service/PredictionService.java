@@ -302,11 +302,25 @@ public class PredictionService {
     }
 
     private PredictionDTO convertToDTO(Prediction prediction) {
+        // Null-safe patient name extraction
+        String patientName = "Patient";
+        String patientCode = null;
+        
+        if (prediction.getPatient() != null) {
+            patientCode = prediction.getPatient().getPatientCode();
+            if (prediction.getPatient().getUser() != null) {
+                patientName = prediction.getPatient().getUser().getFullName();
+            } else {
+                // Fallback: use patient code if User is null
+                patientName = patientCode != null ? patientCode : "Patient";
+            }
+        }
+        
         return PredictionDTO.builder()
                 .id(prediction.getId())
-                .patientId(prediction.getPatient().getId())
-                .patientName(prediction.getPatient().getUser().getFullName())
-                .patientCode(prediction.getPatient().getPatientCode())
+                .patientId(prediction.getPatient() != null ? prediction.getPatient().getId() : null)
+                .patientName(patientName.trim().isEmpty() ? "Patient" : patientName.trim())
+                .patientCode(prediction.getPatient() != null ? prediction.getPatient().getPatientCode() : null)
                 .type(prediction.getType())
                 .prediction(prediction.getPrediction())
                 .confidenceScore(prediction.getConfidenceScore())
