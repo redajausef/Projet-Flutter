@@ -26,7 +26,8 @@ public class PredictionDTO {
     private Double confidenceScore;
     
     private Map<String, Double> factors;
-    private String recommendations;
+    private String recommendations;  // For therapeute
+    private String patientRecommendations;  // For patient
     
     private Integer riskLevel;
     private Prediction.RiskCategory riskCategory;

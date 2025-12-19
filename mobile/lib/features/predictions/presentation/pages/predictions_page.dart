@@ -151,12 +151,20 @@ class _PredictionsPageState extends State<PredictionsPage> {
                         );
                       }
                       
-                      return ListView.builder(
+                      return SingleChildScrollView(
                         padding: const EdgeInsets.symmetric(horizontal: 24),
-                        itemCount: state.predictions.length,
-                        itemBuilder: (context, index) {
-                          return _PredictionCard(prediction: state.predictions[index]);
-                        },
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Progress Chart
+                            if (state.predictions.length > 1)
+                              _ProgressChart(predictions: state.predictions),
+                            
+                            // Predictions list
+                            ...state.predictions.map((p) => 
+                              _PredictionCard(prediction: p)).toList(),
+                          ],
+                        ),
                       );
                     }
                     
@@ -183,7 +191,7 @@ class _PredictionCard extends StatelessWidget {
     final riskCategory = prediction['riskCategory'] ?? 'LOW';
     final algorithm = prediction['algorithmUsed'] ?? 'RandomForest';
     final confidence = ((prediction['confidenceScore'] ?? 0) * 100).round();
-    final recommendations = prediction['recommendations'] ?? '';
+    final recommendations = prediction['patientRecommendations'] ?? prediction['recommendations'] ?? '';
 
     Color riskColor;
     switch (riskCategory.toString().toUpperCase()) {
@@ -334,5 +342,112 @@ class _InfoChip extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+// Progress Chart Widget showing risk score history
+class _ProgressChart extends StatelessWidget {
+  final List<Map<String, dynamic>> predictions;
+
+  const _ProgressChart({required this.predictions});
+
+  @override
+  Widget build(BuildContext context) {
+    // Sort by date and take last 5
+    final sorted = List<Map<String, dynamic>>.from(predictions);
+    sorted.sort((a, b) {
+      final dateA = DateTime.tryParse(a['createdAt']?.toString() ?? '') ?? DateTime.now();
+      final dateB = DateTime.tryParse(b['createdAt']?.toString() ?? '') ?? DateTime.now();
+      return dateA.compareTo(dateB);
+    });
+    final chartData = sorted.take(5).toList();
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.accent.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.show_chart, color: AppColors.accent, size: 18),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Évolution du risque',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 100,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: chartData.map((p) {
+                final riskLevel = (p['riskLevel'] ?? 0) as int;
+                final barHeight = (riskLevel / 100) * 80;
+                final color = _getBarColor(riskLevel);
+                
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Text(
+                          '$riskLevel%',
+                          style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          height: barHeight.clamp(10.0, 80.0),
+                          decoration: BoxDecoration(
+                            color: color,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Center(
+            child: Text(
+              'Dernières ${chartData.length} prédictions',
+              style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getBarColor(int riskLevel) {
+    if (riskLevel < 30) return AppColors.success;
+    if (riskLevel < 50) return AppColors.warning;
+    if (riskLevel < 70) return Colors.orange;
+    return AppColors.error;
   }
 }

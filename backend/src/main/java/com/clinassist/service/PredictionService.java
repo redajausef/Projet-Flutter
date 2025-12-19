@@ -291,6 +291,45 @@ public class PredictionService {
         }
     }
 
+    // === RECOMMANDATIONS POUR PATIENT (vue mobile) ===
+    
+    private String generatePatientDropoutRecommendations(Prediction.RiskCategory category) {
+        return switch (category) {
+            case LOW -> "Félicitations ! Vous êtes sur la bonne voie. Continuez à assister à vos séances régulièrement pour maintenir vos progrès.";
+            case MODERATE -> "Votre engagement est important pour votre bien-être. N'hésitez pas à contacter votre thérapeute si vous avez des difficultés à maintenir vos rendez-vous.";
+            case HIGH -> "Nous remarquons que vous avez manqué quelques séances. Votre santé est notre priorité - reprenez contact avec votre thérapeute pour discuter de vos besoins.";
+            case CRITICAL -> "Nous sommes là pour vous aider. Il est essentiel de reprendre vos séances thérapeutiques. Contactez-nous pour adapter le traitement à votre situation.";
+        };
+    }
+
+    private String generatePatientProgressRecommendations(double score) {
+        if (score >= 80) {
+            return "Excellent travail ! Votre progression est remarquable. Continuez sur cette belle lancée !";
+        } else if (score >= 60) {
+            return "Vous progressez bien ! Chaque séance compte et vous faites des progrès significatifs.";
+        } else if (score >= 40) {
+            return "Continuez vos efforts, le chemin vers le mieux-être prend du temps. Parlez de vos difficultés à votre thérapeute.";
+        } else {
+            return "Ne vous découragez pas. Parlez ouvertement de vos difficultés avec votre thérapeute pour adapter le traitement.";
+        }
+    }
+
+    /**
+     * Generate patient-friendly recommendations based on prediction type
+     * These are shown in the mobile app for patients, not therapeutes
+     */
+    private String generatePatientRecommendations(Prediction prediction) {
+        if (prediction.getType() == Prediction.PredictionType.DROPOUT_RISK && prediction.getRiskCategory() != null) {
+            return generatePatientDropoutRecommendations(prediction.getRiskCategory());
+        } else if (prediction.getType() == Prediction.PredictionType.TREATMENT_PROGRESS && prediction.getRiskLevel() != null) {
+            // For progress, riskLevel is actually 100 - progressScore
+            double progressScore = 100 - prediction.getRiskLevel();
+            return generatePatientProgressRecommendations(progressScore);
+        }
+        // Default patient-friendly message
+        return "Continuez votre suivi thérapeutique. Chaque séance contribue à votre bien-être !";
+    }
+
     private void updatePatientRiskScore(Patient patient, Prediction prediction) {
         if (prediction.getRiskLevel() != null) {
             patient.setRiskScore(prediction.getRiskLevel());
@@ -326,6 +365,7 @@ public class PredictionService {
                 .confidenceScore(prediction.getConfidenceScore())
                 .factors(prediction.getFactors())
                 .recommendations(prediction.getRecommendations())
+                .patientRecommendations(generatePatientRecommendations(prediction))
                 .riskLevel(prediction.getRiskLevel())
                 .riskCategory(prediction.getRiskCategory())
                 .riskCategoryColor(prediction.getRiskCategoryColor())

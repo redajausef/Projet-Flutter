@@ -188,51 +188,6 @@ class _LoginPageState extends State<LoginPage> {
                       },
                     ),
                     const SizedBox(height: 24),
-                    // Divider
-                    Row(
-                      children: [
-                        Expanded(child: Divider(color: AppColors.border)),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Text(
-                            'ou',
-                            style: TextStyle(color: AppColors.textMuted),
-                          ),
-                        ),
-                        Expanded(child: Divider(color: AppColors.border)),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    // Test account info
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppColors.info.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.info.withOpacity(0.3)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(Icons.info_outline, color: AppColors.info, size: 18),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Compte de test',
-                                style: TextStyle(
-                                  color: AppColors.info,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          _buildTestAccount('Patient', 'redajausef@gmail.com', 'reda123'),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
                     // Register link
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
