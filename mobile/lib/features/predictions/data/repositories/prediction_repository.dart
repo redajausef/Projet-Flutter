@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import '../models/prediction_model.dart';
 
 class PredictionRepository {
+  // Use 10.0.2.2 for Android emulator (maps to host's localhost)
   final String baseUrl = 'http://localhost:8080/api';
   final Dio dio;
 

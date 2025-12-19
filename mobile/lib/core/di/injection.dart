@@ -50,7 +50,7 @@ Future<void> initializeDependencies() async {
 
 Dio createDio() {
   final dio = Dio(BaseOptions(
-    baseUrl: 'http://10.0.2.2:8080/api', // Android emulator localhost
+    baseUrl: 'http://localhost:8080/api', // Android emulator localhost
     connectTimeout: const Duration(seconds: 30),
     receiveTimeout: const Duration(seconds: 30),
     headers: {
