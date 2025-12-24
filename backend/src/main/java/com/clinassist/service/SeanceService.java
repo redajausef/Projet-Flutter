@@ -25,6 +25,11 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class SeanceService {
 
+    // Constants for error messages (SonarQube fix)
+    private static final String SEANCE_NOT_FOUND = "Seance not found";
+    private static final String PATIENT_NOT_FOUND = "Patient not found";
+    private static final String THERAPEUTE_NOT_FOUND = "Therapeute not found";
+
     private final SeanceRepository seanceRepository;
     private final PatientRepository patientRepository;
     private final TherapeuteRepository therapeuteRepository;
@@ -95,10 +100,10 @@ public class SeanceService {
     @Transactional
     public SeanceDTO createSeance(CreateSeanceRequest request) {
         Patient patient = patientRepository.findById(request.getPatientId())
-                .orElseThrow(() -> new ResourceNotFoundException("Patient not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(PATIENT_NOT_FOUND));
 
         Therapeute therapeute = therapeuteRepository.findById(request.getTherapeuteId())
-                .orElseThrow(() -> new ResourceNotFoundException("Therapeute not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(THERAPEUTE_NOT_FOUND));
 
         // Check for conflicts
         List<Seance> conflicts = seanceRepository.findByTherapeuteAndDateRange(
@@ -144,7 +149,7 @@ public class SeanceService {
     @Transactional
     public SeanceDTO updateSeanceStatus(Long id, Seance.SeanceStatus status) {
         Seance seance = seanceRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Seance not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(SEANCE_NOT_FOUND));
 
         seance.setStatus(status);
 
@@ -163,7 +168,7 @@ public class SeanceService {
     @Transactional
     public SeanceDTO cancelSeance(Long id, String reason) {
         Seance seance = seanceRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Seance not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(SEANCE_NOT_FOUND));
 
         seance.setStatus(Seance.SeanceStatus.CANCELLED);
         seance.setCancellationReason(reason);
@@ -176,7 +181,7 @@ public class SeanceService {
     @Transactional
     public SeanceDTO rescheduleSeance(Long id, LocalDateTime newDateTime) {
         Seance seance = seanceRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Seance not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(SEANCE_NOT_FOUND));
 
         // Check for conflicts
         List<Seance> conflicts = seanceRepository.findByTherapeuteAndDateRange(
@@ -203,7 +208,7 @@ public class SeanceService {
     public SeanceDTO addSessionNotes(Long id, String therapeuteNotes, Integer progressRating,
                                      Integer moodBefore, Integer moodAfter) {
         Seance seance = seanceRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Seance not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(SEANCE_NOT_FOUND));
 
         seance.setTherapeuteNotes(therapeuteNotes);
         seance.setProgressRating(progressRating);

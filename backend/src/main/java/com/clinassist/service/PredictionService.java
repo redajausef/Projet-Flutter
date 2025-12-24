@@ -26,6 +26,16 @@ import java.util.stream.Collectors;
 @Slf4j
 public class PredictionService {
 
+    // Constants for error messages and factor keys (SonarQube fix)
+    private static final String PATIENT_NOT_FOUND = "Patient not found";
+    private static final String PREDICTION_NOT_FOUND = "Prediction not found";
+    private static final String KEY_NO_SHOW_RATE = "no_show_rate";
+    private static final String KEY_CANCELLATION_RATE = "cancellation_rate";
+    private static final String KEY_TOTAL_SESSIONS = "total_sessions";
+    private static final String KEY_AVG_DAYS_BETWEEN = "avg_days_between_sessions";
+    private static final String KEY_DAYS_SINCE_LAST = "days_since_last_session";
+    private static final String DEFAULT_PATIENT_NAME = "Patient";
+
     private final PredictionRepository predictionRepository;
     private final PatientRepository patientRepository;
     private final SeanceRepository seanceRepository;
@@ -55,7 +65,7 @@ public class PredictionService {
     @Transactional
     public PredictionDTO markAsReviewed(Long predictionId) {
         Prediction prediction = predictionRepository.findById(predictionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Prediction not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(PREDICTION_NOT_FOUND));
         prediction.setIsActive(false);
         prediction = predictionRepository.save(prediction);
         return convertToDTO(prediction);
@@ -64,7 +74,7 @@ public class PredictionService {
     @Transactional
     public PredictionDTO generateNextSessionPrediction(Long patientId) {
         Patient patient = patientRepository.findById(patientId)
-                .orElseThrow(() -> new ResourceNotFoundException("Patient not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(PATIENT_NOT_FOUND));
 
         // Get patient's seance history
         List<Seance> completedSeances = seanceRepository.findCompletedSeancesByPatient(patientId);
@@ -85,7 +95,7 @@ public class PredictionService {
     @Transactional
     public PredictionDTO generateDropoutRiskPrediction(Long patientId) {
         Patient patient = patientRepository.findById(patientId)
-                .orElseThrow(() -> new ResourceNotFoundException("Patient not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(PATIENT_NOT_FOUND));
 
         List<Seance> seances = seanceRepository.findByPatientId(patientId);
         
@@ -99,9 +109,9 @@ public class PredictionService {
                 .filter(s -> s.getStatus() == Seance.SeanceStatus.NO_SHOW)
                 .count();
         
-        factors.put("cancellation_rate", seances.isEmpty() ? 0.0 : 
+        factors.put(KEY_CANCELLATION_RATE, seances.isEmpty() ? 0.0 : 
                 (double) cancelledCount / seances.size());
-        factors.put("no_show_rate", seances.isEmpty() ? 0.0 : 
+        factors.put(KEY_NO_SHOW_RATE, seances.isEmpty() ? 0.0 : 
                 (double) noShowCount / seances.size());
         
         // Calculate days since last session
@@ -112,12 +122,12 @@ public class PredictionService {
         
         long daysSinceLastSession = completed.isEmpty() ? 30 :
                 ChronoUnit.DAYS.between(completed.get(0).getScheduledAt(), LocalDateTime.now());
-        factors.put("days_since_last_session", (double) daysSinceLastSession);
+        factors.put(KEY_DAYS_SINCE_LAST, (double) daysSinceLastSession);
         
         // Calculate risk score using ML service (Random Forest model)
         MLPredictionClient.MLPredictionResult mlResult = mlClient.predictDropoutRisk(
-                factors.get("cancellation_rate"),
-                factors.get("no_show_rate"),
+                factors.get(KEY_CANCELLATION_RATE),
+                factors.get(KEY_NO_SHOW_RATE),
                 (int) daysSinceLastSession,
                 seances.size(),
                 5.0, // Default mood score (would come from session data if tracked)
@@ -162,13 +172,13 @@ public class PredictionService {
     @Transactional
     public PredictionDTO generateTreatmentProgressPrediction(Long patientId) {
         Patient patient = patientRepository.findById(patientId)
-                .orElseThrow(() -> new ResourceNotFoundException("Patient not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(PATIENT_NOT_FOUND));
 
         List<Seance> completedSeances = seanceRepository.findCompletedSeancesByPatient(patientId);
         Double avgProgress = seanceRepository.getAverageProgressRating(patientId);
         
         Map<String, Double> factors = new HashMap<>();
-        factors.put("total_sessions", (double) completedSeances.size());
+        factors.put(KEY_TOTAL_SESSIONS, (double) completedSeances.size());
         factors.put("average_progress", avgProgress != null ? avgProgress : 0.0);
         
         // Calculate mood improvement
@@ -208,7 +218,7 @@ public class PredictionService {
     private Map<String, Double> calculatePredictionFactors(Patient patient, List<Seance> seances) {
         Map<String, Double> factors = new HashMap<>();
         
-        factors.put("total_sessions", (double) seances.size());
+        factors.put(KEY_TOTAL_SESSIONS, (double) seances.size());
         factors.put("age", (double) patient.getAge());
         
         // Average session frequency (days between sessions)
@@ -220,7 +230,7 @@ public class PredictionService {
                         seances.get(i - 1).getScheduledAt()
                 );
             }
-            factors.put("avg_days_between_sessions", avgDaysBetween / (seances.size() - 1));
+            factors.put(KEY_AVG_DAYS_BETWEEN, avgDaysBetween / (seances.size() - 1));
         }
         
         return factors;
@@ -231,8 +241,8 @@ public class PredictionService {
         // Simple prediction logic (in production, use ML model)
         int recommendedDays = 7; // Default weekly
         
-        if (factors.containsKey("avg_days_between_sessions")) {
-            recommendedDays = (int) Math.round(factors.get("avg_days_between_sessions"));
+        if (factors.containsKey(KEY_AVG_DAYS_BETWEEN)) {
+            recommendedDays = (int) Math.round(factors.get(KEY_AVG_DAYS_BETWEEN));
         }
         
         LocalDateTime predictedDate = LocalDateTime.now().plusDays(recommendedDays);
@@ -253,9 +263,9 @@ public class PredictionService {
     private double calculateDropoutRisk(Map<String, Double> factors) {
         double risk = 0;
         
-        risk += factors.getOrDefault("cancellation_rate", 0.0) * 30;
-        risk += factors.getOrDefault("no_show_rate", 0.0) * 40;
-        risk += Math.min(factors.getOrDefault("days_since_last_session", 0.0) / 30 * 30, 30);
+        risk += factors.getOrDefault(KEY_CANCELLATION_RATE, 0.0) * 30;
+        risk += factors.getOrDefault(KEY_NO_SHOW_RATE, 0.0) * 40;
+        risk += Math.min(factors.getOrDefault(KEY_DAYS_SINCE_LAST, 0.0) / 30 * 30, 30);
         
         return Math.min(100, risk);
     }
@@ -342,7 +352,7 @@ public class PredictionService {
 
     private PredictionDTO convertToDTO(Prediction prediction) {
         // Null-safe patient name extraction
-        String patientName = "Patient";
+        String patientName = DEFAULT_PATIENT_NAME;
         String patientCode = null;
         
         if (prediction.getPatient() != null) {
@@ -351,14 +361,14 @@ public class PredictionService {
                 patientName = prediction.getPatient().getUser().getFullName();
             } else {
                 // Fallback: use patient code if User is null
-                patientName = patientCode != null ? patientCode : "Patient";
+                patientName = patientCode != null ? patientCode : DEFAULT_PATIENT_NAME;
             }
         }
         
         return PredictionDTO.builder()
                 .id(prediction.getId())
                 .patientId(prediction.getPatient() != null ? prediction.getPatient().getId() : null)
-                .patientName(patientName.trim().isEmpty() ? "Patient" : patientName.trim())
+                .patientName(patientName.trim().isEmpty() ? DEFAULT_PATIENT_NAME : patientName.trim())
                 .patientCode(prediction.getPatient() != null ? prediction.getPatient().getPatientCode() : null)
                 .type(prediction.getType())
                 .prediction(prediction.getPrediction())

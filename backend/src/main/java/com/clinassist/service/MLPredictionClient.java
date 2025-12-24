@@ -25,6 +25,16 @@ import java.util.Map;
 @Slf4j
 public class MLPredictionClient {
     
+    // Constants for ML request/response keys (SonarQube fix)
+    private static final String KEY_CANCELLATION_RATE = "cancellation_rate";
+    private static final String KEY_NO_SHOW_RATE = "no_show_rate";
+    private static final String KEY_DAYS_SINCE_LAST = "days_since_last_session";
+    private static final String KEY_TOTAL_SESSIONS = "total_sessions";
+    private static final String KEY_AVG_MOOD_SCORE = "avg_mood_score";
+    private static final String KEY_AGE = "age";
+    private static final String DEFAULT_MODEL_VERSION = "1.0.0";
+    private static final String DEFAULT_ML_URL = "http://ml-service:5000";
+
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
     private final String mlServiceUrl;
@@ -36,7 +46,7 @@ public class MLPredictionClient {
         String envUrl = System.getenv("ML_SERVICE_URL");
         this.mlServiceUrl = (envUrl != null && !envUrl.isEmpty()) 
                 ? envUrl 
-                : "http://ml-service:5000";
+                : DEFAULT_ML_URL;
         log.info("ML Service URL configured: {}", this.mlServiceUrl);
     }
     
@@ -53,12 +63,12 @@ public class MLPredictionClient {
         
         try {
             Map<String, Object> request = new HashMap<>();
-            request.put("cancellation_rate", cancellationRate);
-            request.put("no_show_rate", noShowRate);
-            request.put("days_since_last_session", daysSinceLastSession);
-            request.put("total_sessions", totalSessions);
-            request.put("avg_mood_score", avgMoodScore);
-            request.put("age", age);
+            request.put(KEY_CANCELLATION_RATE, cancellationRate);
+            request.put(KEY_NO_SHOW_RATE, noShowRate);
+            request.put(KEY_DAYS_SINCE_LAST, daysSinceLastSession);
+            request.put(KEY_TOTAL_SESSIONS, totalSessions);
+            request.put(KEY_AVG_MOOD_SCORE, avgMoodScore);
+            request.put(KEY_AGE, age);
             
             String response = callMLService("/api/predict/dropout-risk", request);
             JsonNode json = objectMapper.readTree(response);
