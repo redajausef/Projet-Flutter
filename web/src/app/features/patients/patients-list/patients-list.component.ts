@@ -465,7 +465,7 @@ export class PatientsListComponent implements OnInit, OnDestroy {
   private therapeuteService = inject(TherapeuteService);
   private destroy$ = new Subject<void>();
   private searchSubject = new Subject<string>();
-  
+
   // State
   patients = signal<Patient[]>([]);
   therapeutes = signal<Therapeute[]>([]);
@@ -477,17 +477,17 @@ export class PatientsListComponent implements OnInit, OnDestroy {
   editingPatient = signal<Patient | null>(null);
   selectedPatient = signal<Patient | null>(null);
   selectedTherapeuteId: number | null = null;
-  
+
   // Pagination
   currentPage = signal(0);
   totalPages = signal(1);
-  pageSize = 10;
-  
+  pageSize = 50; // Increased to show more patients per page
+
   searchTerm = '';
-  
+
   // Form
   patientForm: PatientCreateRequest & { assignedTherapeuteId?: number } = this.getEmptyForm();
-  
+
   private colors = ['bg-primary', 'bg-success', 'bg-info', 'bg-warning', 'bg-danger'];
 
   // Computed values
@@ -495,20 +495,20 @@ export class PatientsListComponent implements OnInit, OnDestroy {
   activePatients = computed(() => this.patients().filter(p => p.status === 'ACTIVE').length);
   onHoldPatients = computed(() => this.patients().filter(p => p.status === 'ON_HOLD').length);
   highRiskPatients = computed(() => this.patients().filter(p => (p.riskScore || 0) >= 70).length);
-  
+
   filteredPatients = computed(() => {
     let result = this.patients();
-    
+
     if (this.searchTerm) {
       const term = this.searchTerm.toLowerCase();
-      result = result.filter(p => 
-        p.firstName?.toLowerCase().includes(term) || 
+      result = result.filter(p =>
+        p.firstName?.toLowerCase().includes(term) ||
         p.lastName?.toLowerCase().includes(term) ||
         p.email?.toLowerCase().includes(term) ||
         p.patientCode?.toLowerCase().includes(term)
       );
     }
-    
+
     switch (this.filter()) {
       case 'active':
         result = result.filter(p => p.status === 'ACTIVE');
@@ -520,14 +520,14 @@ export class PatientsListComponent implements OnInit, OnDestroy {
         result = result.filter(p => (p.riskScore || 0) >= 70);
         break;
     }
-    
+
     return result;
   });
 
   ngOnInit() {
     this.loadPatients();
     this.loadTherapeutes();
-    
+
     // Debounce search
     this.searchSubject.pipe(
       debounceTime(300),
@@ -597,14 +597,14 @@ export class PatientsListComponent implements OnInit, OnDestroy {
     const pages: number[] = [];
     const total = this.totalPages();
     const current = this.currentPage();
-    
+
     let start = Math.max(0, current - 2);
     let end = Math.min(total - 1, current + 2);
-    
+
     for (let i = start; i <= end; i++) {
       pages.push(i);
     }
-    
+
     return pages;
   }
 
@@ -658,11 +658,11 @@ export class PatientsListComponent implements OnInit, OnDestroy {
 
   savePatient() {
     if (!this.isFormValid()) return;
-    
+
     this.saving.set(true);
-    
+
     const editing = this.editingPatient();
-    
+
     if (editing) {
       // Update existing patient
       this.patientService.updatePatient(editing.id, this.patientForm)
@@ -703,9 +703,9 @@ export class PatientsListComponent implements OnInit, OnDestroy {
   assignTherapeute() {
     const patient = this.selectedPatient();
     if (!patient || !this.selectedTherapeuteId) return;
-    
+
     this.saving.set(true);
-    
+
     this.patientService.assignTherapeute(patient.id, this.selectedTherapeuteId)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
