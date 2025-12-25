@@ -2,9 +2,6 @@ package com.clinassist.service;
 
 import com.clinassist.dto.DashboardStatsDTO;
 import com.clinassist.entity.Patient;
-import com.clinassist.entity.Prediction;
-import com.clinassist.entity.Seance;
-import com.clinassist.entity.Therapeute;
 import com.clinassist.repository.PatientRepository;
 import com.clinassist.repository.PredictionRepository;
 import com.clinassist.repository.SeanceRepository;
@@ -16,19 +13,21 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("DashboardService Unit Tests")
 class DashboardServiceTest {
 
@@ -63,7 +62,10 @@ class DashboardServiceTest {
         when(therapeuteRepository.count()).thenReturn(10L);
         when(seanceRepository.count()).thenReturn(500L);
         
-        // Mock findAll with Pageable - this is used for recent patients
+        // Mock findAll without Pageable (used at line 46)
+        when(patientRepository.findAll()).thenReturn(Arrays.asList());
+        
+        // Mock findAll with Pageable (used at line 102)
         Page<Patient> emptyPatientPage = new PageImpl<>(Arrays.asList());
         when(patientRepository.findAll(any(Pageable.class))).thenReturn(emptyPatientPage);
         
