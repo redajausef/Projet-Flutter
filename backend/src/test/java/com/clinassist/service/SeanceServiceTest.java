@@ -71,7 +71,7 @@ class SeanceServiceTest {
         testTherapeute = new Therapeute();
         testTherapeute.setId(1L);
         testTherapeute.setUser(therapeuteUser);
-        testTherapeute.setSpecialty("Psychologie");
+        testTherapeute.setSpecialization("Psychologie");
 
         testSeance = new Seance();
         testSeance.setId(1L);
@@ -79,7 +79,7 @@ class SeanceServiceTest {
         testSeance.setTherapeute(testTherapeute);
         testSeance.setScheduledAt(LocalDateTime.now().plusDays(1));
         testSeance.setDurationMinutes(45);
-        testSeance.setType(Seance.SeanceType.CONSULTATION);
+        testSeance.setType(Seance.SeanceType.IN_PERSON);
         testSeance.setStatus(Seance.SeanceStatus.SCHEDULED);
     }
 

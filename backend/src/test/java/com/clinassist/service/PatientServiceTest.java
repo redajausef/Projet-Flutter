@@ -19,13 +19,11 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
-import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -129,7 +127,7 @@ class PatientServiceTest {
         // Arrange
         testPatient.setRiskScore(80);
         List<Patient> highRiskPatients = Arrays.asList(testPatient);
-        when(patientRepository.findByRiskScoreGreaterThanEqual(50)).thenReturn(highRiskPatients);
+        when(patientRepository.findHighRiskPatients(50)).thenReturn(highRiskPatients);
 
         // Act
         List<PatientDTO> result = patientService.getHighRiskPatients(50);
@@ -137,7 +135,7 @@ class PatientServiceTest {
         // Assert
         assertNotNull(result);
         assertEquals(1, result.size());
-        verify(patientRepository, times(1)).findByRiskScoreGreaterThanEqual(50);
+        verify(patientRepository, times(1)).findHighRiskPatients(50);
     }
 
     @Test

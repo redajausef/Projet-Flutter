@@ -41,7 +41,7 @@ class SeanceTest {
         seance.setTherapeute(therapeute);
         seance.setScheduledAt(LocalDateTime.now().plusDays(1));
         seance.setDurationMinutes(45);
-        seance.setType(Seance.SeanceType.CONSULTATION);
+        seance.setType(Seance.SeanceType.IN_PERSON);
         seance.setStatus(Seance.SeanceStatus.SCHEDULED);
     }
 
@@ -50,7 +50,7 @@ class SeanceTest {
     void createSeance_WithValidData_ShouldSucceed() {
         assertNotNull(seance);
         assertEquals(45, seance.getDurationMinutes());
-        assertEquals(Seance.SeanceType.CONSULTATION, seance.getType());
+        assertEquals(Seance.SeanceType.IN_PERSON, seance.getType());
     }
 
     @Test
