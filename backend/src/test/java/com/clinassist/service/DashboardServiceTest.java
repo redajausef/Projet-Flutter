@@ -2,6 +2,7 @@ package com.clinassist.service;
 
 import com.clinassist.dto.DashboardStatsDTO;
 import com.clinassist.entity.Patient;
+import com.clinassist.entity.Prediction;
 import com.clinassist.repository.PatientRepository;
 import com.clinassist.repository.PredictionRepository;
 import com.clinassist.repository.SeanceRepository;
@@ -65,9 +66,13 @@ class DashboardServiceTest {
         // Mock findAll without Pageable (used at line 46)
         when(patientRepository.findAll()).thenReturn(Arrays.asList());
         
-        // Mock findAll with Pageable (used at line 102)
+        // Mock findAll with Pageable for patientRepository
         Page<Patient> emptyPatientPage = new PageImpl<>(Arrays.asList());
         when(patientRepository.findAll(any(Pageable.class))).thenReturn(emptyPatientPage);
+        
+        // Mock findAll with Pageable for predictionRepository (line 108)
+        Page<Prediction> emptyPredictionPage = new PageImpl<>(Arrays.asList());
+        when(predictionRepository.findAll(any(Pageable.class))).thenReturn(emptyPredictionPage);
         
         // Mock other repository methods that getDashboardStats uses
         when(seanceRepository.findUpcomingSeances(any(LocalDateTime.class))).thenReturn(Arrays.asList());
