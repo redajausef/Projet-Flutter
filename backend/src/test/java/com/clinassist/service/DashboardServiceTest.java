@@ -1,18 +1,31 @@
 package com.clinassist.service;
 
 import com.clinassist.dto.DashboardStatsDTO;
+import com.clinassist.entity.Patient;
+import com.clinassist.entity.Prediction;
+import com.clinassist.entity.Seance;
+import com.clinassist.entity.Therapeute;
 import com.clinassist.repository.PatientRepository;
 import com.clinassist.repository.PredictionRepository;
 import com.clinassist.repository.SeanceRepository;
 import com.clinassist.repository.TherapeuteRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+
+import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -43,13 +56,28 @@ class DashboardServiceTest {
     @InjectMocks
     private DashboardService dashboardService;
 
-    @Test
-    @DisplayName("Should return dashboard stats")
-    void getDashboardStats_ShouldReturnStats() {
+    @BeforeEach
+    void setUp() {
+        // Setup common mocks for all tests
         when(patientRepository.count()).thenReturn(100L);
         when(therapeuteRepository.count()).thenReturn(10L);
         when(seanceRepository.count()).thenReturn(500L);
+        
+        // Mock findAll with Pageable - this is used for recent patients
+        Page<Patient> emptyPatientPage = new PageImpl<>(Arrays.asList());
+        when(patientRepository.findAll(any(Pageable.class))).thenReturn(emptyPatientPage);
+        
+        // Mock other repository methods that getDashboardStats uses
+        when(seanceRepository.findUpcomingSeances(any(LocalDateTime.class))).thenReturn(Arrays.asList());
+        when(predictionRepository.findHighRiskPredictions(any(Integer.class))).thenReturn(Arrays.asList());
+        when(seanceRepository.findByScheduledAtBetween(any(), any())).thenReturn(Arrays.asList());
+        when(predictionRepository.countAccuratePredictions()).thenReturn(0L);
+        when(predictionRepository.countEvaluatedPredictions()).thenReturn(0L);
+    }
 
+    @Test
+    @DisplayName("Should return dashboard stats")
+    void getDashboardStats_ShouldReturnStats() {
         DashboardStatsDTO result = dashboardService.getDashboardStats();
 
         assertNotNull(result);
@@ -59,10 +87,6 @@ class DashboardServiceTest {
     @Test
     @DisplayName("Dashboard stats should contain patient information")
     void getDashboardStats_ShouldContainPatientInfo() {
-        when(patientRepository.count()).thenReturn(50L);
-        when(therapeuteRepository.count()).thenReturn(5L);
-        when(seanceRepository.count()).thenReturn(200L);
-
         DashboardStatsDTO result = dashboardService.getDashboardStats();
 
         assertNotNull(result);
@@ -71,10 +95,6 @@ class DashboardServiceTest {
     @Test
     @DisplayName("Dashboard stats should contain therapeute information")
     void getDashboardStats_ShouldContainTherapeuteInfo() {
-        when(patientRepository.count()).thenReturn(80L);
-        when(therapeuteRepository.count()).thenReturn(8L);
-        when(seanceRepository.count()).thenReturn(300L);
-
         DashboardStatsDTO result = dashboardService.getDashboardStats();
 
         assertNotNull(result);
@@ -83,10 +103,6 @@ class DashboardServiceTest {
     @Test
     @DisplayName("Dashboard stats should contain seance information")
     void getDashboardStats_ShouldContainSeanceInfo() {
-        when(patientRepository.count()).thenReturn(120L);
-        when(therapeuteRepository.count()).thenReturn(15L);
-        when(seanceRepository.count()).thenReturn(600L);
-
         DashboardStatsDTO result = dashboardService.getDashboardStats();
 
         assertNotNull(result);

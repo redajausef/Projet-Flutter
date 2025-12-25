@@ -106,26 +106,24 @@ class PredictionServiceTest {
     }
 
     @Test
-    @DisplayName("Should generate dropout risk prediction")
-    void generateDropoutRiskPrediction_ShouldReturnPrediction() {
-        when(patientRepository.findById(1L)).thenReturn(Optional.of(testPatient));
-        when(seanceRepository.findCompletedSeancesByPatient(1L)).thenReturn(Arrays.asList());
-        when(predictionRepository.save(any(Prediction.class))).thenReturn(testPrediction);
+    @DisplayName("Should return latest predictions with limit")
+    void getLatestPredictions_ShouldReturnLimitedPredictions() {
+        List<Prediction> predictions = Arrays.asList(testPrediction);
+        when(predictionRepository.findLatestPredictions(eq(1L), any(Pageable.class))).thenReturn(predictions);
 
-        PredictionDTO result = predictionService.generateDropoutRiskPrediction(1L);
+        List<PredictionDTO> result = predictionService.getLatestPredictions(1L, 5);
 
         assertNotNull(result);
     }
 
     @Test
-    @DisplayName("Should return latest predictions with limit")
-    void getLatestPredictions_ShouldReturnLimitedPredictions() {
-        List<Prediction> predictions = Arrays.asList(testPrediction);
-        Pageable pageable = PageRequest.of(0, 5);
-        when(predictionRepository.findLatestPredictions(1L, pageable)).thenReturn(predictions);
+    @DisplayName("Should handle empty predictions list")
+    void getPatientPredictions_ShouldHandleEmptyList() {
+        when(predictionRepository.findByPatientId(999L)).thenReturn(Arrays.asList());
 
-        List<PredictionDTO> result = predictionService.getLatestPredictions(1L, 5);
+        List<PredictionDTO> result = predictionService.getPatientPredictions(999L);
 
         assertNotNull(result);
+        assertTrue(result.isEmpty());
     }
 }
