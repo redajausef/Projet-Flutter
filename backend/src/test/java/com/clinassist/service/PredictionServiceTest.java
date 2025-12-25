@@ -14,6 +14,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
@@ -70,13 +72,13 @@ class PredictionServiceTest {
     @DisplayName("Should return predictions by patient")
     void getPatientPredictions_ShouldReturnPredictions() {
         List<Prediction> predictions = Arrays.asList(testPrediction);
-        when(predictionRepository.findByPatientIdOrderByCreatedAtDesc(1L)).thenReturn(predictions);
+        when(predictionRepository.findByPatientId(1L)).thenReturn(predictions);
 
         List<PredictionDTO> result = predictionService.getPatientPredictions(1L);
 
         assertNotNull(result);
         assertEquals(1, result.size());
-        verify(predictionRepository, times(1)).findByPatientIdOrderByCreatedAtDesc(1L);
+        verify(predictionRepository, times(1)).findByPatientId(1L);
     }
 
     @Test
@@ -84,7 +86,7 @@ class PredictionServiceTest {
     void getHighRiskPredictions_ShouldReturnHighRiskPredictions() {
         testPrediction.setRiskLevel(80);
         List<Prediction> predictions = Arrays.asList(testPrediction);
-        when(predictionRepository.findByRiskLevelGreaterThanEqualOrderByRiskLevelDesc(70)).thenReturn(predictions);
+        when(predictionRepository.findHighRiskPredictions(70)).thenReturn(predictions);
 
         List<PredictionDTO> result = predictionService.getHighRiskPredictions(70);
 
@@ -107,7 +109,7 @@ class PredictionServiceTest {
     @DisplayName("Should generate dropout risk prediction")
     void generateDropoutRiskPrediction_ShouldReturnPrediction() {
         when(patientRepository.findById(1L)).thenReturn(Optional.of(testPatient));
-        when(seanceRepository.findByPatientIdOrderByScheduledAtDesc(1L)).thenReturn(Arrays.asList());
+        when(seanceRepository.findCompletedSeancesByPatient(1L)).thenReturn(Arrays.asList());
         when(predictionRepository.save(any(Prediction.class))).thenReturn(testPrediction);
 
         PredictionDTO result = predictionService.generateDropoutRiskPrediction(1L);
@@ -116,10 +118,11 @@ class PredictionServiceTest {
     }
 
     @Test
-    @DisplayName("Should return latest predictions")
+    @DisplayName("Should return latest predictions with limit")
     void getLatestPredictions_ShouldReturnLimitedPredictions() {
         List<Prediction> predictions = Arrays.asList(testPrediction);
-        when(predictionRepository.findTopNByPatientIdOrderByCreatedAtDesc(1L, 5)).thenReturn(predictions);
+        Pageable pageable = PageRequest.of(0, 5);
+        when(predictionRepository.findLatestPredictions(1L, pageable)).thenReturn(predictions);
 
         List<PredictionDTO> result = predictionService.getLatestPredictions(1L, 5);
 
