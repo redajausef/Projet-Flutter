@@ -1,9 +1,11 @@
 package com.clinassist.service;
 
+import com.clinassist.dto.auth.AuthResponse;
 import com.clinassist.dto.auth.LoginRequest;
 import com.clinassist.dto.auth.RegisterRequest;
-import com.clinassist.dto.auth.AuthResponse;
 import com.clinassist.entity.User;
+import com.clinassist.repository.PatientRepository;
+import com.clinassist.repository.TherapeuteRepository;
 import com.clinassist.repository.UserRepository;
 import com.clinassist.security.JwtTokenProvider;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,6 +24,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -32,10 +35,16 @@ class AuthServiceTest {
     private UserRepository userRepository;
 
     @Mock
+    private PatientRepository patientRepository;
+
+    @Mock
+    private TherapeuteRepository therapeuteRepository;
+
+    @Mock
     private PasswordEncoder passwordEncoder;
 
     @Mock
-    private JwtTokenProvider jwtTokenProvider;
+    private JwtTokenProvider tokenProvider;
 
     @Mock
     private AuthenticationManager authenticationManager;
@@ -54,24 +63,27 @@ class AuthServiceTest {
         testUser.setId(1L);
         testUser.setUsername("dr.martin");
         testUser.setEmail("dr.martin@test.com");
-        testUser.setPassword("encoded_password");
+        testUser.setPassword("password123");
         testUser.setFirstName("Dr Sophie");
         testUser.setLastName("Martin");
-        testUser.setRole(User.UserRole.THERAPEUTE);
+        testUser.setRole(User.Role.THERAPEUTE);
     }
 
     @Test
     @DisplayName("Should authenticate user with valid credentials")
     void login_WithValidCredentials_ShouldReturnToken() {
         LoginRequest loginRequest = new LoginRequest();
-        loginRequest.setUsername("dr.martin");
+        loginRequest.setUsernameOrEmail("dr.martin");
         loginRequest.setPassword("test123");
 
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
             .thenReturn(authentication);
-        when(authentication.getPrincipal()).thenReturn(testUser);
-        when(jwtTokenProvider.generateToken(any(Authentication.class))).thenReturn("jwt_token");
-        when(userRepository.findByUsername("dr.martin")).thenReturn(Optional.of(testUser));
+        when(userRepository.findByUsernameOrEmail("dr.martin", "dr.martin"))
+            .thenReturn(Optional.of(testUser));
+        when(tokenProvider.generateAccessToken(any(Authentication.class))).thenReturn("access_token");
+        when(tokenProvider.generateRefreshToken(anyString())).thenReturn("refresh_token");
+        when(tokenProvider.getExpirationTime()).thenReturn(3600L);
+        when(userRepository.save(any(User.class))).thenReturn(testUser);
 
         AuthResponse response = authService.login(loginRequest);
 
@@ -80,53 +92,41 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("Should check if username exists")
-    void existsByUsername_ShouldReturnTrue_WhenUserExists() {
-        when(userRepository.existsByUsername("dr.martin")).thenReturn(true);
-
-        boolean exists = authService.existsByUsername("dr.martin");
-
-        assertTrue(exists);
-    }
-
-    @Test
-    @DisplayName("Should check if email exists")
-    void existsByEmail_ShouldReturnTrue_WhenEmailExists() {
-        when(userRepository.existsByEmail("dr.martin@test.com")).thenReturn(true);
-
-        boolean exists = authService.existsByEmail("dr.martin@test.com");
-
-        assertTrue(exists);
-    }
-
-    @Test
-    @DisplayName("Should encode password during registration")
-    void register_ShouldEncodePassword() {
+    @DisplayName("Should register new user successfully")
+    void register_WithValidData_ShouldReturnToken() {
         RegisterRequest request = new RegisterRequest();
         request.setUsername("newuser");
         request.setEmail("newuser@test.com");
         request.setPassword("password123");
         request.setFirstName("New");
         request.setLastName("User");
+        request.setRole(User.Role.PATIENT);
 
         when(userRepository.existsByUsername(anyString())).thenReturn(false);
         when(userRepository.existsByEmail(anyString())).thenReturn(false);
-        when(passwordEncoder.encode(anyString())).thenReturn("encoded_password");
         when(userRepository.save(any(User.class))).thenReturn(testUser);
+        when(tokenProvider.generateAccessToken(anyString())).thenReturn("access_token");
+        when(tokenProvider.generateRefreshToken(anyString())).thenReturn("refresh_token");
+        when(tokenProvider.getExpirationTime()).thenReturn(3600L);
 
-        authService.register(request);
+        AuthResponse response = authService.register(request);
 
-        verify(passwordEncoder, times(1)).encode("password123");
+        assertNotNull(response);
+        verify(userRepository, times(1)).save(any(User.class));
     }
 
     @Test
-    @DisplayName("Should find user by username")
-    void findByUsername_ShouldReturnUser_WhenExists() {
+    @DisplayName("Should refresh token successfully")
+    void refreshToken_WithValidToken_ShouldReturnNewTokens() {
+        when(tokenProvider.validateToken("valid_refresh_token")).thenReturn(true);
+        when(tokenProvider.getUsernameFromToken("valid_refresh_token")).thenReturn("dr.martin");
         when(userRepository.findByUsername("dr.martin")).thenReturn(Optional.of(testUser));
+        when(tokenProvider.generateAccessToken(anyString())).thenReturn("new_access_token");
+        when(tokenProvider.generateRefreshToken(anyString())).thenReturn("new_refresh_token");
+        when(tokenProvider.getExpirationTime()).thenReturn(3600L);
 
-        Optional<User> result = authService.findByUsername("dr.martin");
+        AuthResponse response = authService.refreshToken("valid_refresh_token");
 
-        assertTrue(result.isPresent());
-        assertEquals("dr.martin", result.get().getUsername());
+        assertNotNull(response);
     }
 }

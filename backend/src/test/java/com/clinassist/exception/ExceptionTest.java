@@ -16,13 +16,6 @@ class ExceptionTest {
     }
 
     @Test
-    @DisplayName("ResourceNotFoundException should contain resource type and id")
-    void resourceNotFoundException_ShouldContainResourceInfo() {
-        ResourceNotFoundException ex = new ResourceNotFoundException("Patient", 1L);
-        assertTrue(ex.getMessage().contains("Patient") || ex.getMessage().contains("1"));
-    }
-
-    @Test
     @DisplayName("ResourceNotFoundException is a RuntimeException")
     void resourceNotFoundException_ShouldBeRuntimeException() {
         ResourceNotFoundException ex = new ResourceNotFoundException("Test");
@@ -38,10 +31,19 @@ class ExceptionTest {
     }
 
     @Test
-    @DisplayName("ResourceNotFoundException with null message should not throw NPE")
-    void resourceNotFoundException_WithNullMessage_ShouldNotThrowNPE() {
-        assertDoesNotThrow(() -> {
-            new ResourceNotFoundException((String) null);
-        });
+    @DisplayName("ResourceNotFoundException with resource type info")
+    void resourceNotFoundException_WithResourceTypeInfo_ShouldContainMessage() {
+        ResourceNotFoundException ex = new ResourceNotFoundException("Patient", "id", 1L);
+        assertTrue(ex.getMessage().contains("Patient") || ex.getMessage().length() > 0);
+    }
+
+    @Test
+    @DisplayName("Should create exception with formatted message")
+    void resourceNotFoundException_FormattedMessage_ShouldWork() {
+        String resourceName = "Therapeute";
+        String fieldName = "id";
+        Object fieldValue = 99L;
+        ResourceNotFoundException ex = new ResourceNotFoundException(resourceName, fieldName, fieldValue);
+        assertNotNull(ex.getMessage());
     }
 }

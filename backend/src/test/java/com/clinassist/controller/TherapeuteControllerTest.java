@@ -86,16 +86,14 @@ class TherapeuteControllerTest {
     }
 
     @Test
-    @DisplayName("PUT /therapeutes/{id}/status should update therapeute status")
-    void updateTherapeuteStatus_ShouldReturnUpdatedTherapeute() {
-        when(therapeuteService.updateTherapeuteStatus(1L, Therapeute.TherapeuteStatus.BUSY))
-            .thenReturn(testTherapeuteDTO);
+    @DisplayName("PATCH /therapeutes/{id}/availability should update therapeute availability")
+    void updateAvailability_ShouldReturnUpdatedTherapeute() {
+        when(therapeuteService.updateAvailability(1L, false)).thenReturn(testTherapeuteDTO);
 
-        ResponseEntity<TherapeuteDTO> response = therapeuteController.updateTherapeuteStatus(
-            1L, Therapeute.TherapeuteStatus.BUSY);
+        ResponseEntity<TherapeuteDTO> response = therapeuteController.updateAvailability(1L, false);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        verify(therapeuteService, times(1)).updateTherapeuteStatus(1L, Therapeute.TherapeuteStatus.BUSY);
+        verify(therapeuteService, times(1)).updateAvailability(1L, false);
     }
 
     @Test
@@ -107,5 +105,18 @@ class TherapeuteControllerTest {
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(1L, response.getBody().getId());
+    }
+
+    @Test
+    @DisplayName("GET /therapeutes/search should return search results")
+    void searchTherapeutes_ShouldReturnResults() {
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<TherapeuteDTO> results = new PageImpl<>(Arrays.asList(testTherapeuteDTO), pageable, 1);
+        
+        when(therapeuteService.searchTherapeutes("Sophie", pageable)).thenReturn(results);
+
+        ResponseEntity<Page<TherapeuteDTO>> response = therapeuteController.searchTherapeutes("Sophie", pageable);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
     }
 }

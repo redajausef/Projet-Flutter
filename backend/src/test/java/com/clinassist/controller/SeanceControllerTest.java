@@ -101,35 +101,45 @@ class SeanceControllerTest {
     }
 
     @Test
-    @DisplayName("PUT /seances/{id}/status should update seance status")
-    void updateSeanceStatus_ShouldReturnUpdatedSeance() {
+    @DisplayName("PATCH /seances/{id}/status should update seance status")
+    void updateStatus_ShouldReturnUpdatedSeance() {
         when(seanceService.updateSeanceStatus(1L, Seance.SeanceStatus.COMPLETED)).thenReturn(testSeanceDTO);
 
-        ResponseEntity<SeanceDTO> response = seanceController.updateSeanceStatus(
-            1L, Seance.SeanceStatus.COMPLETED);
+        ResponseEntity<SeanceDTO> response = seanceController.updateStatus(1L, Seance.SeanceStatus.COMPLETED);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         verify(seanceService, times(1)).updateSeanceStatus(1L, Seance.SeanceStatus.COMPLETED);
     }
 
     @Test
-    @DisplayName("DELETE /seances/{id} should cancel seance")
+    @DisplayName("PATCH /seances/{id}/cancel should cancel seance")
     void cancelSeance_ShouldReturnSeance() {
-        when(seanceService.cancelSeance(1L)).thenReturn(testSeanceDTO);
+        when(seanceService.cancelSeance(1L, "Patient request")).thenReturn(testSeanceDTO);
 
-        ResponseEntity<SeanceDTO> response = seanceController.cancelSeance(1L);
+        ResponseEntity<SeanceDTO> response = seanceController.cancelSeance(1L, "Patient request");
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        verify(seanceService, times(1)).cancelSeance(1L);
+        verify(seanceService, times(1)).cancelSeance(1L, "Patient request");
     }
 
     @Test
     @DisplayName("GET /seances/upcoming should return upcoming seances")
     void getUpcomingSeances_ShouldReturnSeances() {
         List<SeanceDTO> seances = Arrays.asList(testSeanceDTO);
-        when(seanceService.getUpcomingSeances(any(LocalDateTime.class))).thenReturn(seances);
+        when(seanceService.getUpcomingSeances()).thenReturn(seances);
 
         ResponseEntity<List<SeanceDTO>> response = seanceController.getUpcomingSeances();
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+    }
+
+    @Test
+    @DisplayName("GET /seances/today should return today's seances")
+    void getTodaySeances_ShouldReturnSeances() {
+        List<SeanceDTO> seances = Arrays.asList(testSeanceDTO);
+        when(seanceService.getTodaySeances()).thenReturn(seances);
+
+        ResponseEntity<List<SeanceDTO>> response = seanceController.getTodaySeances();
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
     }

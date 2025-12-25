@@ -18,7 +18,7 @@ class DashboardStatsDTOTest {
         statsDTO.setActivePatients(80L);
         statsDTO.setTotalTherapeutes(10L);
         statsDTO.setTotalSeances(500L);
-        statsDTO.setTodaysSeances(5L);
+        statsDTO.setUpcomingSeances(5L);
         statsDTO.setHighRiskPatients(10L);
     }
 
@@ -59,10 +59,10 @@ class DashboardStatsDTOTest {
     }
 
     @Test
-    @DisplayName("Should set todays seances")
-    void setTodaysSeances_ShouldUpdateCount() {
-        statsDTO.setTodaysSeances(10L);
-        assertEquals(10L, statsDTO.getTodaysSeances());
+    @DisplayName("Should set upcoming seances")
+    void setUpcomingSeances_ShouldUpdateCount() {
+        statsDTO.setUpcomingSeances(10L);
+        assertEquals(10L, statsDTO.getUpcomingSeances());
     }
 
     @Test

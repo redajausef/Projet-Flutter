@@ -3,7 +3,9 @@ package com.clinassist.controller;
 import com.clinassist.dto.auth.AuthResponse;
 import com.clinassist.dto.auth.LoginRequest;
 import com.clinassist.dto.auth.RegisterRequest;
+import com.clinassist.entity.User;
 import com.clinassist.service.AuthService;
+import com.clinassist.service.PatientService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -24,6 +26,9 @@ class AuthControllerTest {
     @Mock
     private AuthService authService;
 
+    @Mock
+    private PatientService patientService;
+
     @InjectMocks
     private AuthController authController;
 
@@ -31,13 +36,21 @@ class AuthControllerTest {
 
     @BeforeEach
     void setUp() {
-        testAuthResponse = AuthResponse.builder()
-            .token("jwt_token")
-            .type("Bearer")
-            .userId(1L)
+        AuthResponse.UserInfo userInfo = AuthResponse.UserInfo.builder()
+            .id(1L)
             .username("dr.martin")
             .email("dr.martin@test.com")
-            .role("THERAPEUTE")
+            .firstName("Dr Sophie")
+            .lastName("Martin")
+            .role(User.Role.THERAPEUTE)
+            .build();
+
+        testAuthResponse = AuthResponse.builder()
+            .accessToken("access_token")
+            .refreshToken("refresh_token")
+            .tokenType("Bearer")
+            .expiresIn(3600L)
+            .user(userInfo)
             .build();
     }
 
@@ -45,7 +58,7 @@ class AuthControllerTest {
     @DisplayName("POST /auth/login should return token for valid credentials")
     void login_WithValidCredentials_ShouldReturnToken() {
         LoginRequest loginRequest = new LoginRequest();
-        loginRequest.setUsername("dr.martin");
+        loginRequest.setUsernameOrEmail("dr.martin");
         loginRequest.setPassword("test123");
 
         when(authService.login(any(LoginRequest.class))).thenReturn(testAuthResponse);
@@ -54,7 +67,7 @@ class AuthControllerTest {
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
-        assertEquals("jwt_token", response.getBody().getToken());
+        assertEquals("access_token", response.getBody().getAccessToken());
     }
 
     @Test
@@ -66,41 +79,38 @@ class AuthControllerTest {
         request.setPassword("password123");
         request.setFirstName("New");
         request.setLastName("User");
+        request.setRole(User.Role.PATIENT);
 
-        when(authService.existsByUsername(anyString())).thenReturn(false);
-        when(authService.existsByEmail(anyString())).thenReturn(false);
         when(authService.register(any(RegisterRequest.class))).thenReturn(testAuthResponse);
 
-        ResponseEntity<?> response = authController.register(request);
+        ResponseEntity<AuthResponse> response = authController.register(request);
 
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        assertNotNull(response.getBody());
     }
 
     @Test
-    @DisplayName("POST /auth/register should return error for existing username")
-    void register_WithExistingUsername_ShouldReturnBadRequest() {
-        RegisterRequest request = new RegisterRequest();
-        request.setUsername("existinguser");
+    @DisplayName("POST /auth/refresh should return new tokens")
+    void refreshToken_WithValidToken_ShouldReturnNewTokens() {
+        when(authService.refreshToken("valid_refresh_token")).thenReturn(testAuthResponse);
 
-        when(authService.existsByUsername("existinguser")).thenReturn(true);
+        ResponseEntity<AuthResponse> response = authController.refreshToken("valid_refresh_token");
 
-        ResponseEntity<?> response = authController.register(request);
-
-        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
     }
 
     @Test
-    @DisplayName("POST /auth/register should return error for existing email")
-    void register_WithExistingEmail_ShouldReturnBadRequest() {
-        RegisterRequest request = new RegisterRequest();
-        request.setUsername("newuser");
-        request.setEmail("existing@test.com");
+    @DisplayName("Login should call auth service")
+    void login_ShouldCallAuthService() {
+        LoginRequest loginRequest = new LoginRequest();
+        loginRequest.setUsernameOrEmail("dr.martin");
+        loginRequest.setPassword("test123");
 
-        when(authService.existsByUsername(anyString())).thenReturn(false);
-        when(authService.existsByEmail("existing@test.com")).thenReturn(true);
+        when(authService.login(any(LoginRequest.class))).thenReturn(testAuthResponse);
 
-        ResponseEntity<?> response = authController.register(request);
+        authController.login(loginRequest);
 
-        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        verify(authService, times(1)).login(any(LoginRequest.class));
     }
 }

@@ -6,8 +6,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
-import java.util.Arrays;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -23,8 +23,9 @@ class PredictionDTOTest {
         predictionDTO.setPatientId(1L);
         predictionDTO.setPatientName("Jean Dupont");
         predictionDTO.setType(Prediction.PredictionType.DROPOUT_RISK);
-        predictionDTO.setScore(0.75);
-        predictionDTO.setConfidence(0.85);
+        predictionDTO.setConfidenceScore(0.85);
+        predictionDTO.setRiskLevel(75);
+        predictionDTO.setRiskCategory(Prediction.RiskCategory.HIGH);
         predictionDTO.setCreatedAt(LocalDateTime.now());
     }
 
@@ -32,22 +33,22 @@ class PredictionDTOTest {
     @DisplayName("Should create PredictionDTO with valid data")
     void createPredictionDTO_WithValidData_ShouldSucceed() {
         assertNotNull(predictionDTO);
-        assertEquals(0.75, predictionDTO.getScore());
+        assertEquals(0.85, predictionDTO.getConfidenceScore());
         assertEquals(Prediction.PredictionType.DROPOUT_RISK, predictionDTO.getType());
     }
 
     @Test
-    @DisplayName("Should set score correctly")
-    void setScore_ShouldUpdateScore() {
-        predictionDTO.setScore(0.9);
-        assertEquals(0.9, predictionDTO.getScore());
+    @DisplayName("Should set risk level correctly")
+    void setRiskLevel_ShouldUpdateRiskLevel() {
+        predictionDTO.setRiskLevel(90);
+        assertEquals(90, predictionDTO.getRiskLevel());
     }
 
     @Test
-    @DisplayName("Should set confidence correctly")
-    void setConfidence_ShouldUpdateConfidence() {
-        predictionDTO.setConfidence(0.95);
-        assertEquals(0.95, predictionDTO.getConfidence());
+    @DisplayName("Should set confidence score correctly")
+    void setConfidenceScore_ShouldUpdateConfidenceScore() {
+        predictionDTO.setConfidenceScore(0.95);
+        assertEquals(0.95, predictionDTO.getConfidenceScore());
     }
 
     @Test
@@ -58,25 +59,20 @@ class PredictionDTOTest {
     }
 
     @Test
-    @DisplayName("Should set contributing factors")
-    void setContributingFactors_ShouldUpdateFactors() {
-        List<String> factors = Arrays.asList("Missed sessions", "Low engagement");
-        predictionDTO.setContributingFactors(factors);
-        assertEquals(2, predictionDTO.getContributingFactors().size());
+    @DisplayName("Should set factors map")
+    void setFactors_ShouldUpdateFactors() {
+        Map<String, Double> factors = new HashMap<>();
+        factors.put("attendance", 0.8);
+        factors.put("engagement", 0.7);
+        predictionDTO.setFactors(factors);
+        assertEquals(2, predictionDTO.getFactors().size());
     }
 
     @Test
     @DisplayName("Should identify high risk prediction")
-    void isHighRisk_ShouldReturnTrue_WhenScoreAboveThreshold() {
-        predictionDTO.setScore(0.8);
-        assertTrue(predictionDTO.getScore() >= 0.7);
-    }
-
-    @Test
-    @DisplayName("Should identify low risk prediction")
-    void isHighRisk_ShouldReturnFalse_WhenScoreBelowThreshold() {
-        predictionDTO.setScore(0.3);
-        assertFalse(predictionDTO.getScore() >= 0.7);
+    void isHighRisk_ShouldReturnTrue_WhenRiskLevelAboveThreshold() {
+        predictionDTO.setRiskLevel(80);
+        assertTrue(predictionDTO.getRiskLevel() >= 70);
     }
 
     @Test
@@ -84,5 +80,12 @@ class PredictionDTOTest {
     void setPatientName_ShouldUpdateName() {
         predictionDTO.setPatientName("Marie Curie");
         assertEquals("Marie Curie", predictionDTO.getPatientName());
+    }
+
+    @Test
+    @DisplayName("Should set risk category")
+    void setRiskCategory_ShouldUpdateCategory() {
+        predictionDTO.setRiskCategory(Prediction.RiskCategory.CRITICAL);
+        assertEquals(Prediction.RiskCategory.CRITICAL, predictionDTO.getRiskCategory());
     }
 }

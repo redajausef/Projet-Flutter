@@ -109,13 +109,13 @@ class PatientControllerTest {
     }
 
     @Test
-    @DisplayName("DELETE /patients/{id} should delete patient")
-    void deletePatient_ShouldReturnNoContent() {
-        doNothing().when(patientService).deletePatient(1L);
+    @DisplayName("PATCH /patients/{id}/status should update patient status")
+    void updateStatus_ShouldReturnUpdatedPatient() {
+        when(patientService.updatePatientStatus(1L, Patient.PatientStatus.INACTIVE)).thenReturn(testPatientDTO);
 
-        ResponseEntity<Void> response = patientController.deletePatient(1L);
+        ResponseEntity<PatientDTO> response = patientController.updateStatus(1L, Patient.PatientStatus.INACTIVE);
 
-        assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
-        verify(patientService, times(1)).deletePatient(1L);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        verify(patientService, times(1)).updatePatientStatus(1L, Patient.PatientStatus.INACTIVE);
     }
 }

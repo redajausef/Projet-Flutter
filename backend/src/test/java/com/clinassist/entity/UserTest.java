@@ -20,7 +20,7 @@ class UserTest {
         user.setLastName("Dupont");
         user.setEmail("jean.dupont@test.com");
         user.setPassword("password123");
-        user.setRole(User.UserRole.PATIENT);
+        user.setRole(User.Role.PATIENT);
     }
 
     @Test
@@ -35,22 +35,24 @@ class UserTest {
     @Test
     @DisplayName("Should get full name")
     void getFullName_ShouldReturnCorrectName() {
-        String fullName = user.getFirstName() + " " + user.getLastName();
+        String fullName = user.getFullName();
         assertEquals("Jean Dupont", fullName);
     }
 
     @Test
     @DisplayName("Should update user role")
     void updateRole_ShouldChangeRole() {
-        user.setRole(User.UserRole.THERAPEUTE);
-        assertEquals(User.UserRole.THERAPEUTE, user.getRole());
+        user.setRole(User.Role.THERAPEUTE);
+        assertEquals(User.Role.THERAPEUTE, user.getRole());
     }
 
     @Test
     @DisplayName("User role enum should have correct values")
     void userRole_ShouldHaveCorrectValues() {
-        User.UserRole[] roles = User.UserRole.values();
+        User.Role[] roles = User.Role.values();
         assertTrue(roles.length >= 2);
+        assertEquals(User.Role.PATIENT, User.Role.valueOf("PATIENT"));
+        assertEquals(User.Role.THERAPEUTE, User.Role.valueOf("THERAPEUTE"));
     }
 
     @Test
@@ -64,5 +66,12 @@ class UserTest {
     @DisplayName("Should check email format")
     void email_ShouldContainAtSymbol() {
         assertTrue(user.getEmail().contains("@"));
+    }
+
+    @Test
+    @DisplayName("Should set isActive status")
+    void setIsActive_ShouldUpdateStatus() {
+        user.setIsActive(false);
+        assertFalse(user.getIsActive());
     }
 }

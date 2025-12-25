@@ -1,7 +1,6 @@
 package com.clinassist.controller;
 
 import com.clinassist.dto.DashboardStatsDTO;
-import com.clinassist.dto.SeanceDTO;
 import com.clinassist.service.DashboardService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -12,11 +11,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -40,7 +34,7 @@ class DashboardControllerTest {
         testStatsDTO.setActivePatients(80L);
         testStatsDTO.setTotalTherapeutes(10L);
         testStatsDTO.setTotalSeances(500L);
-        testStatsDTO.setTodaysSeances(5L);
+        testStatsDTO.setUpcomingSeances(5L);
         testStatsDTO.setHighRiskPatients(10L);
     }
 
@@ -58,43 +52,46 @@ class DashboardControllerTest {
     }
 
     @Test
-    @DisplayName("GET /dashboard/upcoming-seances should return upcoming seances")
-    void getUpcomingSeances_ShouldReturnSeances() {
-        SeanceDTO seanceDTO = new SeanceDTO();
-        seanceDTO.setId(1L);
-        List<SeanceDTO> seances = Arrays.asList(seanceDTO);
-        
-        when(dashboardService.getUpcomingSeances(5)).thenReturn(seances);
+    @DisplayName("Dashboard stats should contain patient information")
+    void getDashboardStats_ShouldContainPatientInfo() {
+        when(dashboardService.getDashboardStats()).thenReturn(testStatsDTO);
 
-        ResponseEntity<List<SeanceDTO>> response = dashboardController.getUpcomingSeances(5);
+        ResponseEntity<DashboardStatsDTO> response = dashboardController.getDashboardStats();
 
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(1, response.getBody().size());
-    }
-
-    @Test
-    @DisplayName("GET /dashboard/weekly-stats should return weekly stats")
-    void getWeeklyStats_ShouldReturnStats() {
-        Map<String, Object> weeklyStats = new HashMap<>();
-        weeklyStats.put("totalSeances", 20);
-        weeklyStats.put("completedSeances", 18);
-        
-        when(dashboardService.getWeeklyStats()).thenReturn(weeklyStats);
-
-        ResponseEntity<Map<String, Object>> response = dashboardController.getWeeklyStats();
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
+        assertNotNull(response.getBody().getTotalPatients());
     }
 
     @Test
-    @DisplayName("GET /dashboard/high-risk-count should return high risk patients count")
-    void getHighRiskCount_ShouldReturnCount() {
-        when(dashboardService.getHighRiskPatientsCount(70)).thenReturn(10L);
+    @DisplayName("Dashboard stats should contain therapeute information")
+    void getDashboardStats_ShouldContainTherapeuteInfo() {
+        when(dashboardService.getDashboardStats()).thenReturn(testStatsDTO);
 
-        ResponseEntity<Long> response = dashboardController.getHighRiskPatientsCount(70);
+        ResponseEntity<DashboardStatsDTO> response = dashboardController.getDashboardStats();
 
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(10L, response.getBody());
+        assertNotNull(response.getBody());
+        assertEquals(10L, response.getBody().getTotalTherapeutes());
+    }
+
+    @Test
+    @DisplayName("Dashboard stats should contain seance information")
+    void getDashboardStats_ShouldContainSeanceInfo() {
+        when(dashboardService.getDashboardStats()).thenReturn(testStatsDTO);
+
+        ResponseEntity<DashboardStatsDTO> response = dashboardController.getDashboardStats();
+
+        assertNotNull(response.getBody());
+        assertEquals(500L, response.getBody().getTotalSeances());
+    }
+
+    @Test
+    @DisplayName("Dashboard stats should contain high risk patients count")
+    void getDashboardStats_ShouldContainHighRiskInfo() {
+        when(dashboardService.getDashboardStats()).thenReturn(testStatsDTO);
+
+        ResponseEntity<DashboardStatsDTO> response = dashboardController.getDashboardStats();
+
+        assertNotNull(response.getBody());
+        assertEquals(10L, response.getBody().getHighRiskPatients());
     }
 }

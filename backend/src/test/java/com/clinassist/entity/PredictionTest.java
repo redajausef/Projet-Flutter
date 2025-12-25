@@ -29,8 +29,9 @@ class PredictionTest {
         prediction.setId(1L);
         prediction.setPatient(patient);
         prediction.setType(Prediction.PredictionType.DROPOUT_RISK);
-        prediction.setScore(0.75);
-        prediction.setConfidence(0.85);
+        prediction.setConfidenceScore(0.85);
+        prediction.setRiskLevel(75);
+        prediction.setRiskCategory(Prediction.RiskCategory.HIGH);
         prediction.setCreatedAt(LocalDateTime.now());
     }
 
@@ -38,15 +39,15 @@ class PredictionTest {
     @DisplayName("Should create prediction with valid data")
     void createPrediction_WithValidData_ShouldSucceed() {
         assertNotNull(prediction);
-        assertEquals(0.75, prediction.getScore());
+        assertEquals(0.85, prediction.getConfidenceScore());
         assertEquals(Prediction.PredictionType.DROPOUT_RISK, prediction.getType());
     }
 
     @Test
-    @DisplayName("Should update prediction score")
-    void updateScore_ShouldChangeScore() {
-        prediction.setScore(0.9);
-        assertEquals(0.9, prediction.getScore());
+    @DisplayName("Should update prediction risk level")
+    void updateRiskLevel_ShouldChangeRiskLevel() {
+        prediction.setRiskLevel(90);
+        assertEquals(90, prediction.getRiskLevel());
     }
 
     @Test
@@ -58,24 +59,18 @@ class PredictionTest {
     }
 
     @Test
-    @DisplayName("Should set confidence value")
-    void setConfidence_ShouldUpdateConfidence() {
-        prediction.setConfidence(0.95);
-        assertEquals(0.95, prediction.getConfidence());
+    @DisplayName("Should set confidence score value")
+    void setConfidenceScore_ShouldUpdateConfidence() {
+        prediction.setConfidenceScore(0.95);
+        assertEquals(0.95, prediction.getConfidenceScore());
     }
 
     @Test
-    @DisplayName("Should be high risk when score is above threshold")
-    void isHighRisk_ShouldReturnTrue_WhenScoreAboveThreshold() {
-        prediction.setScore(0.8);
-        assertTrue(prediction.getScore() >= 0.7);
-    }
-
-    @Test
-    @DisplayName("Should not be high risk when score is below threshold")
-    void isHighRisk_ShouldReturnFalse_WhenScoreBelowThreshold() {
-        prediction.setScore(0.5);
-        assertFalse(prediction.getScore() >= 0.7);
+    @DisplayName("Risk category enum should have correct values")
+    void riskCategory_ShouldHaveCorrectValues() {
+        Prediction.RiskCategory[] categories = Prediction.RiskCategory.values();
+        assertTrue(categories.length >= 2);
+        assertEquals(Prediction.RiskCategory.HIGH, Prediction.RiskCategory.valueOf("HIGH"));
     }
 
     @Test
@@ -90,5 +85,12 @@ class PredictionTest {
     void getPatient_ShouldReturnPatient() {
         assertNotNull(prediction.getPatient());
         assertEquals(1L, prediction.getPatient().getId());
+    }
+
+    @Test
+    @DisplayName("Should get risk category color")
+    void getRiskCategoryColor_ShouldReturnColor() {
+        String color = prediction.getRiskCategoryColor();
+        assertNotNull(color);
     }
 }

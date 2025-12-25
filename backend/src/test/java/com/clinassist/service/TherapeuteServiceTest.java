@@ -4,7 +4,9 @@ import com.clinassist.dto.TherapeuteDTO;
 import com.clinassist.entity.Therapeute;
 import com.clinassist.entity.User;
 import com.clinassist.exception.ResourceNotFoundException;
+import com.clinassist.repository.SeanceRepository;
 import com.clinassist.repository.TherapeuteRepository;
+import com.clinassist.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -31,6 +33,12 @@ class TherapeuteServiceTest {
     @Mock
     private TherapeuteRepository therapeuteRepository;
 
+    @Mock
+    private UserRepository userRepository;
+
+    @Mock
+    private SeanceRepository seanceRepository;
+
     @InjectMocks
     private TherapeuteService therapeuteService;
 
@@ -44,6 +52,7 @@ class TherapeuteServiceTest {
         testUser.setFirstName("Dr Sophie");
         testUser.setLastName("Martin");
         testUser.setEmail("sophie.martin@clinassist.com");
+        testUser.setUsername("dr.martin");
 
         testTherapeute = new Therapeute();
         testTherapeute.setId(1L);
@@ -62,6 +71,8 @@ class TherapeuteServiceTest {
         Page<Therapeute> therapeutePage = new PageImpl<>(therapeutes, pageable, 1);
         
         when(therapeuteRepository.findAll(pageable)).thenReturn(therapeutePage);
+        when(seanceRepository.findByTherapeuteIdAndScheduledAtBetween(anyLong(), any(), any())).thenReturn(Arrays.asList());
+        when(seanceRepository.findByTherapeuteIdAndScheduledAtAfter(anyLong(), any())).thenReturn(Arrays.asList());
 
         Page<TherapeuteDTO> result = therapeuteService.getAllTherapeutes(pageable);
 
@@ -74,6 +85,8 @@ class TherapeuteServiceTest {
     @DisplayName("Should return therapeute by ID when exists")
     void getTherapeuteById_WhenExists_ShouldReturnTherapeute() {
         when(therapeuteRepository.findById(1L)).thenReturn(Optional.of(testTherapeute));
+        when(seanceRepository.findByTherapeuteIdAndScheduledAtBetween(anyLong(), any(), any())).thenReturn(Arrays.asList());
+        when(seanceRepository.findByTherapeuteIdAndScheduledAtAfter(anyLong(), any())).thenReturn(Arrays.asList());
 
         TherapeuteDTO result = therapeuteService.getTherapeuteById(1L);
 
@@ -96,6 +109,8 @@ class TherapeuteServiceTest {
     @DisplayName("Should return therapeute by user ID")
     void getTherapeuteByUserId_WhenExists_ShouldReturnTherapeute() {
         when(therapeuteRepository.findByUserId(1L)).thenReturn(Optional.of(testTherapeute));
+        when(seanceRepository.findByTherapeuteIdAndScheduledAtBetween(anyLong(), any(), any())).thenReturn(Arrays.asList());
+        when(seanceRepository.findByTherapeuteIdAndScheduledAtAfter(anyLong(), any())).thenReturn(Arrays.asList());
 
         TherapeuteDTO result = therapeuteService.getTherapeuteByUserId(1L);
 
@@ -107,7 +122,9 @@ class TherapeuteServiceTest {
     @DisplayName("Should return available therapeutes")
     void getAvailableTherapeutes_ShouldReturnTherapeutes() {
         List<Therapeute> therapeutes = Arrays.asList(testTherapeute);
-        when(therapeuteRepository.findByStatus(Therapeute.TherapeuteStatus.AVAILABLE)).thenReturn(therapeutes);
+        when(therapeuteRepository.findAvailableTherapeutes()).thenReturn(therapeutes);
+        when(seanceRepository.findByTherapeuteIdAndScheduledAtBetween(anyLong(), any(), any())).thenReturn(Arrays.asList());
+        when(seanceRepository.findByTherapeuteIdAndScheduledAtAfter(anyLong(), any())).thenReturn(Arrays.asList());
 
         List<TherapeuteDTO> result = therapeuteService.getAvailableTherapeutes();
 
@@ -116,12 +133,14 @@ class TherapeuteServiceTest {
     }
 
     @Test
-    @DisplayName("Should update therapeute status")
-    void updateTherapeuteStatus_ShouldUpdateStatus() {
+    @DisplayName("Should update therapeute availability")
+    void updateAvailability_ShouldUpdateStatus() {
         when(therapeuteRepository.findById(1L)).thenReturn(Optional.of(testTherapeute));
         when(therapeuteRepository.save(any(Therapeute.class))).thenReturn(testTherapeute);
+        when(seanceRepository.findByTherapeuteIdAndScheduledAtBetween(anyLong(), any(), any())).thenReturn(Arrays.asList());
+        when(seanceRepository.findByTherapeuteIdAndScheduledAtAfter(anyLong(), any())).thenReturn(Arrays.asList());
 
-        TherapeuteDTO result = therapeuteService.updateTherapeuteStatus(1L, Therapeute.TherapeuteStatus.BUSY);
+        TherapeuteDTO result = therapeuteService.updateAvailability(1L, false);
 
         assertNotNull(result);
         verify(therapeuteRepository, times(1)).save(any(Therapeute.class));
